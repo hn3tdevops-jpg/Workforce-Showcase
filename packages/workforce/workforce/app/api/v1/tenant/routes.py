@@ -10,17 +10,38 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from apps.api.app.core.auth_deps import (
-    CurrentUser, require_membership, require_permission,
+from packages.workforce.workforce.app.core.auth_deps import (
+    CurrentUser, require_membership, require_permission, _get_user_location_permissions, get_tenant_ctx,
 )
-from apps.api.app.core.db import get_db
-from apps.api.app.models.business import Location
-from apps.api.app.models.identity import (
+from packages.workforce.workforce.app.core.db import get_db
+from packages.workforce.workforce.app.models.business import Location
+from packages.workforce.workforce.app.models.identity import (
     BizRole, BizRolePermission, Membership, MembershipLocationRole, MembershipRole,
     MembershipStatus, Permission, User, UserStatus, WorkerProfile,
 )
 
 router = APIRouter(prefix="/api/v1/tenant/{business_id}", tags=["tenant"])
+
+
+@router.get('/effective_permissions')
+def get_effective_permissions(business_id: str, location_id: str | None = None, tenant_ctx = Depends(get_tenant_ctx)):
+    """Return effective permissions for current user in the business and optional location."""
+    # tenant_ctx is resolved by get_tenant_ctx and includes permissions and user context
+    # If location_id specified, compute location-specific perms
+    from apps.api.app.core.auth_deps import _get_user_location_permissions
+    if location_id:
+        # need user object; tenant_ctx is TenantContext dataclass
+        # Attempt to load user from DB in a minimal way
+        # For now return location-specific union by calling helper with DB session
+        from apps.api.app.core.db import get_db
+        db = next(get_db())
+        # Need actual User object for helper; load by id
+        from apps.api.app.models.identity import User
+        user = db.get(User, tenant_ctx.user_id)
+        perms = _get_user_location_permissions(user, business_id, location_id, db)
+    else:
+        perms = tenant_ctx.permissions
+    return list(perms)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -654,51 +675,26 @@ def set_member_location_roles(
     db: Session = Depends(get_db),
     user: CurrentUser = None,
 ):
-    """Replace location-role assignments for a member. Only affects locations present in the payload.
-    Requires roles:write permission.
+    """Thin wrapper around the tenant service function.
+
+    Delegates business logic to packages.workforce.workforce.app.services.tenant_service.set_member_location_roles_service
     """
-    m = db.get(Membership, membership_id)
-    if not m or m.business_id != business_id:
-        raise HTTPException(404, "Membership not found")
+    from packages.workforce.workforce.app.services.tenant_service import set_member_location_roles_service
 
-    for location_id, role_ids in payload.assignments.items():
-
-        # Verify location belongs to this business
-        loc = db.execute(
-            select(Location).where(Location.id == location_id, Location.business_id == business_id)
-        ).scalar_one_or_none()
-        if not loc:
-            raise HTTPException(404, f"Location {location_id} not found in this business")
-        # Delete existing assignments for this location
-        db.execute(
-            delete(MembershipLocationRole).where(
-                MembershipLocationRole.membership_id == membership_id,
-                MembershipLocationRole.location_id == location_id,
-            )
+    try:
+        result = set_member_location_roles_service(
+            business_id=business_id,
+            membership_id=membership_id,
+            assignments=payload.assignments,
+            job_title_labels=payload.job_title_labels,
+            db=db,
+            actor=user,
         )
-        # Add new ones
-        loc_labels = payload.job_title_labels.get(location_id, {})
-        for role_id in role_ids:
-            role = db.execute(
-                select(BizRole).where(BizRole.id == role_id, BizRole.business_id == business_id)
-            ).scalar_one_or_none()
-            if not role:
-                raise HTTPException(404, f"Role {role_id} not found in this business")
-            db.add(MembershipLocationRole(
-                membership_id=membership_id,
-                location_id=location_id,
-                role_id=role_id,
-                job_title_label=loc_labels.get(role_id),
-                created_by_user_id=user.id if user else None,
-            ))
-    db.commit()
-    # Return updated state
-    rows = db.execute(
-        select(MembershipLocationRole).where(MembershipLocationRole.membership_id == membership_id)
-    ).scalars().all()
-    result: dict[str, list[str]] = {}
-    for r in rows:
-        result.setdefault(r.location_id, []).append(r.role_id)
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
     return result
 
 
@@ -865,7 +861,7 @@ def receive_hk_event(
     Writes an AuditEvent for traceability; returns 202 Accepted.
     Only callable by a JWT bearer that has the members:read permission (service-to-service).
     """
-    from apps.api.app.models.identity import AuditEvent
+    from packages.workforce.workforce.app.models.identity import AuditEvent
     from datetime import datetime as _dt, timezone as _tz
     audit = AuditEvent(
         business_id=business_id,
