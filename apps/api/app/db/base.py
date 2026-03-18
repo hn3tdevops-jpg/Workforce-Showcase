@@ -2,17 +2,16 @@ from app.models.base import Base
 
 
 def import_core_models() -> None:
-    """Import canonical core models so SQLAlchemy metadata is populated."""
     import app.models.tenant  # noqa: F401
     import app.models.user  # noqa: F401
 
 
 def import_domain_models() -> None:
-    """Import active domain models explicitly."""
     import app.modules.hospitable.models.property_ops  # noqa: F401
 
 
 def import_models() -> None:
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     """Import all models so metadata is populated."""
@@ -56,6 +55,8 @@ def import_models() -> None:
 >>>>>>> 0868e6b (Add runtime and WSGI entrypoints for workforce deployment)
 =======
     """Import all currently active models."""
+=======
+>>>>>>> 1430462 (Stabilize canonical backend metadata and v1 API surface)
     import_core_models()
     import_domain_models()
 >>>>>>> d8433ac (Normalize model registration and async config defaults)
