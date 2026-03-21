@@ -8,12 +8,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.api.app.api.routes import audit, business, demo, employee, health, scheduling, training
-from apps.api.app.api.v1.router import v1_router
-from apps.api.app.api.v1.console.routes import router as console_router
-from apps.api.app.middleware.audit import AuditMiddleware
-from apps.api.app.core.db import get_db
-from apps.api.app.services.roles_seed import seed_permissions_and_roles
+from packages.workforce.workforce.app.api.routes import audit, business, demo, employee, health, scheduling, training
+from packages.workforce.workforce.app.api.v1.router import v1_router
+from packages.workforce.workforce.app.api.v1.console.routes import router as console_router
+from packages.workforce.workforce.app.middleware.audit import AuditMiddleware
+from packages.workforce.workforce.app.core.db import get_db
+from packages.workforce.workforce.app.services.roles_seed import seed_permissions_and_roles
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "https://workforce-hn3t.pythonanywhere.com",
         "https://api-workforce-hn3t.pythonanywhere.com",
+        "https://3000-i6ne3nzbqxau88uqlo4n4-e11040b0.us1.manus.computer",
     ],
     allow_credentials=True,
     allow_methods=["*"],

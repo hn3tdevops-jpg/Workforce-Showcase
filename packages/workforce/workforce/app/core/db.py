@@ -4,7 +4,7 @@ from typing import Generator
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 
-from apps.api.app.core.config import settings
+from packages.workforce.workforce.app.core.config import settings
 
 # SQLite needs foreign keys enabled per connection
 _connect_args = {}

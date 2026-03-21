@@ -3,20 +3,20 @@ import pytest
 from sqlalchemy import select
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")
-from apps.api.app.core.db import engine, db_session
-from apps.api.app.models.base import Base
+from packages.workforce.workforce.app.core.db import engine, db_session
+from packages.workforce.workforce.app.models.base import Base
 
 # Ensure in-memory test DB has schema
 Base.metadata.create_all(engine)
 
 from fastapi import HTTPException
-from apps.api.app.core.auth_deps import (
+from packages.workforce.workforce.app.core.auth_deps import (
     _get_user_permissions,
     _get_user_location_permissions,
     _resolve_business_id,
     get_tenant_ctx,
 )
-from apps.api.app.models.identity import (
+from packages.workforce.workforce.app.models.identity import (
     User,
     Membership,
     BizRole,
@@ -25,8 +25,8 @@ from apps.api.app.models.identity import (
     MembershipRole,
     MembershipLocationRole,
 )
-from apps.api.app.models.business import Business
-from apps.api.app.services.roles_seed import seed_permissions_and_roles
+from packages.workforce.workforce.app.models.business import Business, Location
+from packages.workforce.workforce.app.services.roles_seed import seed_permissions_and_roles
 
 
 def test_superadmin_bypasses_membership_and_has_all_permissions():
@@ -86,14 +86,22 @@ def test_location_scoped_permissions_are_enforced():
         db.add(biz)
         db.flush()
 
+        # create locations for testing
+        loc_a = Location(id='loc-A', business_id=b_id, name='Loc A')
+        loc_b = Location(id='loc-B', business_id=b_id, name='Loc B')
+        db.add_all([loc_a, loc_b])
+        db.flush()
+
         m = Membership(user_id=u.id, business_id=b_id, status='active')
         db.add(m)
         db.flush()
 
         # create a role and a global business-level permission
-        p_biz = Permission(key='members:read')
-        db.add(p_biz)
-        db.flush()
+        p_biz = db.execute(select(Permission).where(Permission.key == 'members:read')).scalar_one_or_none()
+        if p_biz is None:
+            p_biz = Permission(key='members:read')
+            db.add(p_biz)
+            db.flush()
         r_biz = BizRole(id='role-biz-1', name='RoleBiz')
         db.add(r_biz)
         db.flush()
@@ -108,9 +116,11 @@ def test_location_scoped_permissions_are_enforced():
         assert 'members:read' in perms
 
         # create a location-scoped permission + role
-        p_loc = Permission(key='hk.tasks.manage')
-        db.add(p_loc)
-        db.flush()
+        p_loc = db.execute(select(Permission).where(Permission.key == 'hk.tasks.manage')).scalar_one_or_none()
+        if p_loc is None:
+            p_loc = Permission(key='hk.tasks.manage')
+            db.add(p_loc)
+            db.flush()
         r_loc = BizRole(id='role-loc-1', name='RoleLoc')
         db.add(r_loc)
         db.flush()

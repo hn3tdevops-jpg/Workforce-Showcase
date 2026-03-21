@@ -19,8 +19,8 @@ from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from apps.api.app.core.db import get_db
-from apps.api.app.core.security import decode_access_token, hash_api_key
+from packages.workforce.workforce.app.core.db import get_db
+from packages.workforce.workforce.app.core.security import decode_access_token, hash_api_key
 from packages.workforce.workforce.app.models.identity import (
     Agent, AgentCredential, AgentStatus,
     BizRole, BizRolePermission, Membership, MembershipLocationRole, MembershipRole,
@@ -298,7 +298,7 @@ def get_tenant_ctx(
     perms = _get_user_permissions(user, business_id, db)
 
     # Collect location IDs the user is assigned to
-    from apps.api.app.models.identity import MembershipLocationRole as MLR
+    from packages.workforce.workforce.app.models.identity import MembershipLocationRole as MLR
     loc_rows = db.execute(
         select(MLR.location_id)
         .join(Membership, Membership.id == MLR.membership_id)
