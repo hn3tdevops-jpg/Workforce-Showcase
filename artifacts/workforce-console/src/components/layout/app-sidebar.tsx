@@ -1,7 +1,7 @@
 import { 
   Building2, LayoutDashboard, DoorOpen, CheckSquare, 
   Users, CalendarDays, Settings, ShieldAlert,
-  HardHat
+  HardHat, Activity
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -28,6 +28,7 @@ export function AppSidebar() {
     { title: "Tasks", url: "/app/tasks", icon: CheckSquare },
     { title: "Assignments", url: "/app/assignments", icon: Users },
     { title: "Shifts", url: "/app/shifts", icon: CalendarDays },
+    { title: "Event Timeline", url: "/app/timeline", icon: Activity },
   ];
 
   return (

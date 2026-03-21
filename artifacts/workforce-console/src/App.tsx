@@ -13,6 +13,7 @@ import Tasks from "@/pages/tasks";
 import Assignments from "@/pages/assignments";
 import Shifts from "@/pages/shifts";
 import SessionDebug from "@/pages/session";
+import Timeline from "@/pages/timeline";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -35,6 +36,7 @@ function ProtectedRoutes() {
         <Route path="/app/assignments" component={Assignments} />
         <Route path="/app/shifts" component={Shifts} />
         <Route path="/app/session" component={SessionDebug} />
+        <Route path="/app/timeline" component={Timeline} />
         <Route path="/app" component={() => <Redirect to="/app/dashboard" />} />
         <Route component={NotFound} />
       </Switch>
