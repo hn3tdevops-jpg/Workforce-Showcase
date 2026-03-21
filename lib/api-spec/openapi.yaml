@@ -1,15 +1,24 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Workforce API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: rooms
+    description: Room operations
+  - name: tasks
+    description: Task operations
+  - name: assignments
+    description: Assignment operations
+  - name: shifts
+    description: Shift operations
 paths:
   /healthz:
     get:
@@ -24,7 +33,244 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /v1/auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      description: Authenticate with email and password, returns a bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current session
+      description: Returns the current user, their memberships, roles, and permissions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Session info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionInfo"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/switch-business:
+    post:
+      operationId: switchBusiness
+      tags: [auth]
+      summary: Switch active business context
+      description: Switch to a different business membership and returns a new token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchBusinessRequest"
+      responses:
+        "200":
+          description: Business switched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not a member of this business
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/rooms/:
+    get:
+      operationId: listRooms
+      tags: [rooms]
+      summary: List rooms
+      description: Returns a list of rooms for the active business
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/tasks/:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: List tasks
+      description: Returns a list of tasks for the active business
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/assignments/:
+    get:
+      operationId: listAssignments
+      tags: [assignments]
+      summary: List assignments
+      description: Returns a list of shift assignments for the active business
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: List of assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/shifts/:
+    get:
+      operationId: listShifts
+      tags: [shifts]
+      summary: List shifts
+      description: Returns a list of shifts for the active business
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: List of shifts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shift"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +280,189 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+        - detail
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+      required:
+        - access_token
+        - token_type
+
+    SwitchBusinessRequest:
+      type: object
+      properties:
+        business_id:
+          type: string
+      required:
+        - business_id
+
+    Membership:
+      type: object
+      properties:
+        business_id:
+          type: string
+        business_name:
+          type: string
+        role:
+          type: string
+      required:
+        - business_id
+        - business_name
+        - role
+
+    SessionInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        memberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/Membership"
+        active_business_id:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - email
+        - memberships
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        room_number:
+          type: string
+        status:
+          type: string
+        room_type:
+          type: string
+        floor:
+          type: string
+        building:
+          type: string
+        location_id:
+          type: string
+        notes:
+          type: string
+      required:
+        - id
+        - name
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        task_type:
+          type: string
+        due_date:
+          type: string
+        assigned_to:
+          type: string
+        created_at:
+          type: string
+        location_id:
+          type: string
+        room_id:
+          type: string
+      required:
+        - id
+        - title
+
+    Assignment:
+      type: object
+      properties:
+        id:
+          type: string
+        shift_id:
+          type: string
+        employee_id:
+          type: string
+        employee_name:
+          type: string
+        status:
+          type: string
+        role:
+          type: string
+        created_at:
+          type: string
+      required:
+        - id
+        - shift_id
+        - employee_id
+
+    Shift:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        start_time:
+          type: string
+        end_time:
+          type: string
+        status:
+          type: string
+        role:
+          type: string
+        location_id:
+          type: string
+        capacity:
+          type: integer
+        filled:
+          type: integer
+        created_at:
+          type: string
+      required:
+        - id
+        - start_time
+        - end_time
