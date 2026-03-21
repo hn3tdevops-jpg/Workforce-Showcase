@@ -19,6 +19,8 @@ def get_cors_origins() -> list[str]:
 
     return [
         "https://hn3t.pythonanywhere.com",
+        # Manus preview exact host (current preview)
+        "https://3000-i6ne3nzbqxau88uqlo4n4-e11040b0.us1.manus.computer",
         "http://127.0.0.1:5000",
         "http://localhost:5000",
         "http://127.0.0.1:5173",
@@ -31,9 +33,16 @@ app = FastAPI(
     version="0.1.0",
 )
 
+<<<<<<< HEAD
+=======
+# Allow an origin regex (env override supported) to permit Manus preview hosts like *.manus.computer
+_allow_origin_regex = os.environ.get("CORS_ALLOW_ORIGIN_REGEX", r"https://.*\\.manus\\.computer")
+
+>>>>>>> 06fda79 (Add Manus preview origin and allow_origin_regex for *.manus.computer (env override via CORS_ALLOW_ORIGIN_REGEX)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
+    allow_origin_regex=_allow_origin_regex or None,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
