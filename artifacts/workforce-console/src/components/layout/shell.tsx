@@ -22,18 +22,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const style = {
-    "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "4rem",
+    "--sidebar-width": "15rem",
+    "--sidebar-width-icon": "3.5rem",
   };
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex min-h-screen w-full bg-background text-foreground selection:bg-primary/30">
+      <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
         <AppSidebar />
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <TopNav />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-            <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+          <main className="flex-1 overflow-y-auto">
+            <div className="animate-in fade-in duration-300 ease-out h-full">
               {children}
             </div>
           </main>

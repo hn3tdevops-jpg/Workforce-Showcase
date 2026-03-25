@@ -4,9 +4,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 
-// Layout & Pages
 import { AppShell } from "@/components/layout/shell";
 import Login from "@/pages/login";
+import Bootstrap from "@/pages/bootstrap";
 import Dashboard from "@/pages/dashboard";
 import Rooms from "@/pages/rooms";
 import Tasks from "@/pages/tasks";
@@ -26,16 +26,24 @@ const queryClient = new QueryClient({
   },
 });
 
+function PageContent({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
+      {children}
+    </div>
+  );
+}
+
 function ProtectedRoutes() {
   return (
     <AppShell>
       <Switch>
-        <Route path="/app/dashboard" component={Dashboard} />
-        <Route path="/app/rooms" component={Rooms} />
-        <Route path="/app/tasks" component={Tasks} />
-        <Route path="/app/assignments" component={Assignments} />
-        <Route path="/app/shifts" component={Shifts} />
-        <Route path="/app/session" component={SessionDebug} />
+        <Route path="/app/dashboard" component={() => <PageContent><Dashboard /></PageContent>} />
+        <Route path="/app/rooms" component={() => <PageContent><Rooms /></PageContent>} />
+        <Route path="/app/tasks" component={() => <PageContent><Tasks /></PageContent>} />
+        <Route path="/app/assignments" component={() => <PageContent><Assignments /></PageContent>} />
+        <Route path="/app/shifts" component={() => <PageContent><Shifts /></PageContent>} />
+        <Route path="/app/session" component={() => <PageContent><SessionDebug /></PageContent>} />
         <Route path="/app/timeline" component={Timeline} />
         <Route path="/app" component={() => <Redirect to="/app/dashboard" />} />
         <Route component={NotFound} />
@@ -49,6 +57,7 @@ function Router() {
     <Switch>
       <Route path="/" component={() => <Redirect to="/app/dashboard" />} />
       <Route path="/login" component={Login} />
+      <Route path="/bootstrap" component={Bootstrap} />
       <Route path="/app/*" component={ProtectedRoutes} />
       <Route component={NotFound} />
     </Switch>
