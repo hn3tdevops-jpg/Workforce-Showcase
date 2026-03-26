@@ -20,6 +20,21 @@ export function getDb(): Database.Database {
 
 function initSchema(db: Database.Database): void {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS local_credential_overrides (
+      email       TEXT PRIMARY KEY,
+      pwd_hash    TEXT NOT NULL,
+      user_json   TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS local_sessions (
+      token       TEXT PRIMARY KEY,
+      email       TEXT NOT NULL,
+      user_json   TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS property_buildings (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       location_id TEXT    NOT NULL,
