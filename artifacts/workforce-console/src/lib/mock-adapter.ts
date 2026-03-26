@@ -40,12 +40,19 @@ export interface HospitableRoom {
   occupancy_status: string;
   inspection_status: string;
   maintenance_status: string;
+  pet_policy: string | null;
+  smoking_status: string | null;
   notes: string | null;
   last_cleaned_at: string | null;
   last_inspected_at: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Joined fields from property_buildings / property_floors
+  building_name: string | null;
+  building_code: string | null;
+  floor_label: string | null;
+  floor_number: number | null;
 }
 
 export interface HospitableTask {
@@ -88,10 +95,13 @@ export interface NormalizedRoom {
   name: string;
   room_number: string;
   room_type: string | null;
+  room_label: string | null;
   /** Uses hospitable status names: dirty|assigned|cleaning|clean|inspect|inspected|blocked */
   status: string;
   building: string | null;
+  building_code: string | null;
   floor: string | null;
+  floor_number: number | null;
   notes: string | null;
   location_id: string;
   /** Retained for API mutations */
@@ -100,6 +110,9 @@ export interface NormalizedRoom {
   inspection_status?: string;
   maintenance_status?: string;
   bed_type_summary?: string | null;
+  bed_count?: number | null;
+  pet_policy?: string | null;
+  smoking_status?: string | null;
   last_cleaned_at?: string | null;
   last_inspected_at?: string | null;
 }
@@ -129,10 +142,13 @@ function normalizeRoom(r: HospitableRoom): NormalizedRoom {
     id: String(r.id),
     name: `Room ${r.room_number}`,
     room_number: r.room_number,
+    room_label: r.room_label ?? null,
     room_type: r.room_type ?? null,
     status: r.housekeeping_status,
-    building: null,
-    floor: null,
+    building: r.building_name ?? null,
+    building_code: r.building_code ?? null,
+    floor: r.floor_label ?? null,
+    floor_number: r.floor_number ?? null,
     notes: r.notes ?? null,
     location_id: r.location_id,
     _hospitable_id: r.id,
@@ -140,6 +156,9 @@ function normalizeRoom(r: HospitableRoom): NormalizedRoom {
     inspection_status: r.inspection_status,
     maintenance_status: r.maintenance_status,
     bed_type_summary: r.bed_type_summary ?? null,
+    bed_count: r.bed_count ?? null,
+    pet_policy: r.pet_policy ?? null,
+    smoking_status: r.smoking_status ?? null,
     last_cleaned_at: r.last_cleaned_at ?? null,
     last_inspected_at: r.last_inspected_at ?? null,
   };
@@ -226,6 +245,30 @@ export async function fetchRoomsMock(locationId?: string): Promise<NormalizedRoo
     `/hospitable/rooms?location_id=${encodeURIComponent(locationId)}`
   );
   return raw.map(normalizeRoom);
+}
+
+export async function updateRoom(
+  roomId: string,
+  patch: {
+    room_number?: string;
+    room_label?: string;
+    room_type?: string;
+    bed_count?: number | null;
+    bed_type_summary?: string;
+    pet_policy?: string;
+    smoking_status?: string;
+    notes?: string;
+  }
+): Promise<unknown> {
+  if (DEMO_MODE) {
+    const room = MOCK_ROOMS.find((r) => String(r.id) === roomId);
+    if (room) Object.assign(room, patch);
+    return Promise.resolve(room);
+  }
+  return fetchApi(`/hospitable/rooms/${roomId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
 }
 
 export async function updateRoomStatus(roomId: string, status: string): Promise<unknown> {

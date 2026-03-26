@@ -141,13 +141,21 @@ router.get("/rooms", (req: Request, res: Response) => {
   const db = getDb();
   const { location_id, housekeeping_status, sector_id } = req.query;
 
-  let sql = "SELECT * FROM hk_rooms WHERE 1=1";
+  let sql = `SELECT r.*,
+    b.name  AS building_name,
+    b.code  AS building_code,
+    f.label AS floor_label,
+    f.floor_number AS floor_number
+  FROM hk_rooms r
+  LEFT JOIN property_buildings b ON b.id = r.building_id
+  LEFT JOIN property_floors    f ON f.id = r.floor_id
+  WHERE 1=1`;
   const params: any[] = [];
 
-  if (location_id) { sql += " AND location_id = ?"; params.push(location_id); }
-  if (housekeeping_status) { sql += " AND housekeeping_status = ?"; params.push(housekeeping_status); }
-  if (sector_id) { sql += " AND sector_id = ?"; params.push(sector_id); }
-  sql += " ORDER BY CAST(room_number AS INTEGER), room_number";
+  if (location_id)        { sql += " AND r.location_id = ?";        params.push(location_id); }
+  if (housekeeping_status){ sql += " AND r.housekeeping_status = ?"; params.push(housekeeping_status); }
+  if (sector_id)          { sql += " AND r.sector_id = ?";           params.push(sector_id); }
+  sql += " ORDER BY b.sort_order, f.sort_order, CAST(r.room_number AS INTEGER), r.room_number";
 
   const rooms = db.prepare(sql).all(...params).map(formatRoom);
   ok(res, rooms);
@@ -182,6 +190,33 @@ router.get("/rooms/:roomId", (req: Request, res: Response) => {
   const room = db.prepare("SELECT * FROM hk_rooms WHERE id = ?").get(req.params.roomId);
   if (!room) return notFound(res, "Room not found");
   ok(res, formatRoom(room));
+});
+
+router.patch("/rooms/:roomId", (req: Request, res: Response) => {
+  const db = getDb();
+  const room = db.prepare("SELECT * FROM hk_rooms WHERE id = ?").get(req.params.roomId) as any;
+  if (!room) return notFound(res, "Room not found");
+
+  const {
+    room_number, room_label, room_type, bed_count, bed_type_summary,
+    pet_policy, smoking_status, notes,
+  } = req.body;
+
+  const updates: string[] = ["updated_at = ?"];
+  const params: any[] = [now()];
+
+  if (room_number     !== undefined) { updates.push("room_number = ?");     params.push(room_number); }
+  if (room_label      !== undefined) { updates.push("room_label = ?");      params.push(room_label); }
+  if (room_type       !== undefined) { updates.push("room_type = ?");       params.push(room_type); }
+  if (bed_count       !== undefined) { updates.push("bed_count = ?");       params.push(bed_count); }
+  if (bed_type_summary!== undefined) { updates.push("bed_type_summary = ?");params.push(bed_type_summary); }
+  if (pet_policy      !== undefined) { updates.push("pet_policy = ?");      params.push(pet_policy); }
+  if (smoking_status  !== undefined) { updates.push("smoking_status = ?");  params.push(smoking_status); }
+  if (notes           !== undefined) { updates.push("notes = ?");           params.push(notes); }
+
+  params.push(req.params.roomId);
+  db.prepare(`UPDATE hk_rooms SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+  ok(res, formatRoom(db.prepare("SELECT * FROM hk_rooms WHERE id = ?").get(req.params.roomId)));
 });
 
 router.patch("/rooms/:roomId/status", (req: Request, res: Response) => {
