@@ -1,4 +1,4 @@
-import { Building, LogOut, ChevronDown, User, ShieldCheck, ExternalLink, MapPin } from "lucide-react";
+import { Building, LogOut, ChevronDown, User, ShieldCheck, ExternalLink, MapPin, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "@/lib/location-context";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -185,6 +185,13 @@ export function TopNav() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-border/50" />
+
+            <DropdownMenuItem className="gap-2 cursor-pointer text-sm" asChild>
+              <a href="/app/users">
+                <Users className="w-3.5 h-3.5 opacity-60" />
+                Manage Staff
+              </a>
+            </DropdownMenuItem>
 
             <DropdownMenuItem className="gap-2 cursor-pointer text-sm" asChild>
               <a href="/app/session">
