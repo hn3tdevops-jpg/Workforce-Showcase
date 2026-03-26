@@ -4,6 +4,27 @@ import { fetchApi } from "./api-client";
 import { SessionInfo, LoginResponse, LoginRequest } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useToast } from "@/hooks/use-toast";
 
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+
+const DEMO_SESSION: SessionInfo = {
+  id: "user-001",
+  email: "manager@silversands.com",
+  first_name: "Sarah",
+  last_name: "Okonkwo",
+  is_active: true,
+  active_business_id: "biz-001",
+  roles: ["owner"],
+  permissions: ["owner:*"],
+  memberships: [
+    {
+      business_id: "biz-001",
+      business_name: "Silver Sands Motel",
+      role: "owner",
+      scope: "business",
+    } as never,
+  ],
+};
+
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -26,6 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
 
   const loadSession = async () => {
+    if (DEMO_MODE) {
+      setSession(DEMO_SESSION);
+      setIsLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem("workforce_token");
     if (!token) {
       setSession(null);
@@ -59,6 +86,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (credentials: LoginRequest) => {
+    if (DEMO_MODE) {
+      setSession(DEMO_SESSION);
+      return;
+    }
     const response = await fetchApi<LoginResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ ...credentials, business_id: null }),

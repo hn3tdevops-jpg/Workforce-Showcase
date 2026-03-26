@@ -16,6 +16,7 @@ import Shifts from "@/pages/shifts";
 import Users from "@/pages/users";
 import SessionDebug from "@/pages/session";
 import Timeline from "@/pages/timeline";
+import PropertyMap from "@/pages/property-map";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -49,6 +50,7 @@ function ProtectedRoutes() {
           <Route path="/app/users" component={() => <PageContent><Users /></PageContent>} />
           <Route path="/app/session" component={() => <PageContent><SessionDebug /></PageContent>} />
           <Route path="/app/timeline" component={Timeline} />
+          <Route path="/app/property-map" component={PropertyMap} />
           <Route path="/app" component={() => <Redirect to="/app/dashboard" />} />
           <Route component={NotFound} />
         </Switch>

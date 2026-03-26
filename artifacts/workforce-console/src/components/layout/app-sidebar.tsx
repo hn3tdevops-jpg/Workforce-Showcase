@@ -2,7 +2,7 @@ import {
   LayoutDashboard, DoorOpen, CheckSquare,
   Users, CalendarDays, ShieldAlert, Activity,
   Building2, Package, Clock, BarChart3, Settings,
-  Home, Wrench
+  Home, Wrench, Boxes
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -97,6 +97,7 @@ export function AppSidebar() {
 
   const operationsNav: NavItem[] = [
     { title: "Rooms", url: "/app/rooms", icon: DoorOpen },
+    { title: "Property Map", url: "/app/property-map", icon: Boxes },
     { title: "Tasks", url: "/app/tasks", icon: CheckSquare },
     { title: "Assignments", url: "/app/assignments", icon: Users },
     { title: "Shifts", url: "/app/shifts", icon: CalendarDays },
