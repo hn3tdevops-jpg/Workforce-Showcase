@@ -1,5 +1,6 @@
-import { Building, LogOut, ChevronDown, User, ShieldCheck, ExternalLink } from "lucide-react";
+import { Building, LogOut, ChevronDown, User, ShieldCheck, ExternalLink, MapPin } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useLocation } from "@/lib/location-context";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -26,6 +27,60 @@ function EnvBadge() {
   );
 }
 
+function LocationSelector() {
+  const { locations, selectedLocationId, selectedLocation, setLocationId, isLoading } = useLocation();
+
+  if (isLoading || locations.length === 0) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 h-8 text-xs hover:bg-accent/50 hidden sm:flex"
+        >
+          <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+          <span className="truncate max-w-[110px]">
+            {selectedLocation?.name ?? "All Locations"}
+          </span>
+          <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52 border-border/50 shadow-xl shadow-black/20">
+        <DropdownMenuLabel className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+          Select Location
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-border/50" />
+        <DropdownMenuItem
+          className={`text-sm gap-2 cursor-pointer ${!selectedLocationId ? "text-primary bg-primary/10" : ""}`}
+          onClick={() => setLocationId(null)}
+        >
+          <MapPin className="w-3.5 h-3.5 opacity-50 shrink-0" />
+          All Locations
+        </DropdownMenuItem>
+        {locations.map((loc) => (
+          <DropdownMenuItem
+            key={loc.id}
+            onClick={() => setLocationId(loc.id)}
+            className={`text-sm gap-2 cursor-pointer ${
+              loc.id === selectedLocationId ? "text-primary bg-primary/10" : ""
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5 opacity-50 shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="truncate">{loc.name}</span>
+              {loc.address && (
+                <span className="text-[10px] text-muted-foreground truncate">{loc.address}</span>
+              )}
+            </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function TopNav() {
   const { session, logout, switchBusiness, hasRole } = useAuth();
 
@@ -45,13 +100,15 @@ export function TopNav() {
         <div className="h-4 w-px bg-border/50 hidden md:block" />
         <div className="hidden md:flex items-center gap-2 text-sm">
           <Building className="w-3.5 h-3.5 text-primary shrink-0" />
-          <span className="text-muted-foreground">Workspace:</span>
           <span className="font-semibold">{activeBusiness?.business_name ?? "—"}</span>
         </div>
         <EnvBadge />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
+        {/* Location selector */}
+        <LocationSelector />
+
         {/* Business switcher — only shown when user has multiple memberships */}
         {canSwitch && (
           <DropdownMenu>
@@ -62,7 +119,7 @@ export function TopNav() {
                 className="gap-1.5 h-8 text-xs bg-card border-border/50 hover:bg-accent/50 hidden sm:flex"
               >
                 <Building className="w-3.5 h-3.5" />
-                <span className="truncate max-w-[100px]">{activeBusiness?.business_name}</span>
+                <span className="truncate max-w-[90px]">{activeBusiness?.business_name}</span>
                 <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
               </Button>
             </DropdownMenuTrigger>
@@ -104,7 +161,7 @@ export function TopNav() {
                 {initials}
               </div>
               <div className="hidden md:flex flex-col items-start text-left min-w-0">
-                <span className="text-xs font-medium leading-none truncate max-w-[120px]">
+                <span className="text-xs font-medium leading-none truncate max-w-[110px]">
                   {session?.first_name
                     ? `${session.first_name} ${session.last_name ?? ""}`.trim()
                     : session?.email}

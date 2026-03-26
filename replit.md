@@ -94,3 +94,74 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+# Workforce Frontend Demo
+
+## Goal
+Build a frontend demo for Workforce that showcases:
+1. User administration
+2. Hospitable room and task operations
+
+## Stack
+- React
+- TypeScript
+- Vite
+- Clean component structure
+- Dark mode first
+- API-driven UI using the Workforce backend
+
+## UI priorities
+The frontend must look like an internal operations product, not a toy app.
+
+### Required screens
+1. Dashboard
+   - cards for room counts by status
+   - cards for task counts by status
+   - quick location switcher
+2. Users
+   - user table
+   - role assignment drawer/modal
+   - scoped role display by business/location
+3. Rooms
+   - room list/grid by location
+   - status badges
+   - room detail side panel
+4. Tasks
+   - task list / kanban-like grouped list
+   - assign task action
+   - update task status action
+
+## Product rules
+- Workforce owns user administration and permissions.
+- Hospitable screens sit inside the same app and use the same selected business/location context.
+- Keep the UX fast and operational.
+- No unnecessary marketing pages.
+- No unrelated feature expansion.
+
+## UX rules
+- Dark theme by default
+- Clear business selector and location selector
+- Responsive enough for tablet and desktop
+- Tables and cards should feel clean and production-oriented
+- Use optimistic UI only where simple and safe
+- Show loading, empty, and error states
+
+## API integration rules
+Assume an environment variable for backend base URL, such as:
+VITE_API_BASE_URL
+
+Create a small API client layer and typed request/response models.
+
+## Demo fallback
+If some backend endpoints are not ready yet:
+- keep the real API structure
+- allow temporary local mock data adapters behind a toggle
+- make it easy to switch from mock to live API
+
+## First implementation order
+1. app shell and routing
+2. business/location context
+3. dashboard
+4. users page
+5. rooms page
+6. tasks page

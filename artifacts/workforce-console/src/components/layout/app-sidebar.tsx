@@ -103,6 +103,10 @@ export function AppSidebar() {
     { title: "Event Timeline", url: "/app/timeline", icon: Activity },
   ];
 
+  const peopleNav: NavItem[] = [
+    { title: "Users", url: "/app/users", icon: Users },
+  ];
+
   const adminNav: NavItem[] = [
     { title: "Settings", url: "/app/admin/settings", icon: Settings },
   ];
@@ -136,10 +140,11 @@ export function AppSidebar() {
 
         <div className="mx-3 my-1.5 h-px bg-border/40" />
 
+        <NavGroup label="People" items={peopleNav} location={location} />
+
         <FutureNavGroup
-          label="People"
+          label="Scheduling"
           items={[
-            { title: "Employees", icon: Users },
             { title: "Scheduling", icon: Clock },
           ]}
         />
