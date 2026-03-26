@@ -265,3 +265,33 @@ The demo should support this flow:
 4. Manager assigns a room task
 5. Housekeeper moves task to in progress and then completed
 6. Dashboard reflects the result
+
+## Backend API — Connection & Auth
+
+### Live API
+The live API is deployed at `https://hn3t.pythonanywhere.com` (Python FastAPI + SQLite via PythonAnywhere).
+
+**Auth endpoints:**
+- `POST /api/v1/auth/login` → `{ access_token, token_type, business_id, user: { id, email, is_active } }`
+- `GET /api/v1/auth/me` → `{ user: { id, email, is_active }, business_id, memberships: [{ business_id, status, is_owner }], roles, permissions }`
+- `POST /api/v1/auth/switch-business` → `{ access_token, token_type, business_id, roles, permissions }`
+
+**Important:** The API returns a nested response shape (`user.id`, `user.email` etc.) which `auth-context.tsx` maps to the flat `SessionInfo` type the console uses. The mapping is in `mapToSessionInfo()` in `src/lib/auth-context.tsx`.
+
+### Dev proxy (recommended)
+In development, leave `VITE_API_BASE_URL` empty in `.env`. The Vite dev server proxies all `/api/v1/*` requests to `https://hn3t.pythonanywhere.com`, eliminating browser CORS restrictions.
+
+### Direct connection
+Set `VITE_API_BASE_URL=https://hn3t.pythonanywhere.com` in `.env`. Requires the PythonAnywhere server to have CORS configured for the Replit domain via `CORS_ALLOW_ORIGINS` env var.
+
+### Token storage
+The access token is stored as `workforce_token` in localStorage. The API's `/auth/me` is called on page load to rehydrate the session.
+
+### Role names
+The API returns role names with capital first letter (e.g., `"Owner"`, `"Manager"`). `hasRole()` and `isOwner()` do case-insensitive comparison.
+
+### `business_name` gap
+The `/auth/me` endpoint does not include `business_name` in memberships. The console handles this with a fallback to `business_id` in the UI. If `business_name` is populated (e.g., from demo mode), it displays normally.
+
+### Demo mode
+Set `VITE_DEMO_MODE=true` to bypass all API calls and use Silver Sands mock data. Useful for UI development without a live API.

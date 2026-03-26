@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "./api-client";
-import { SessionInfo, LoginResponse, LoginRequest } from "@workspace/api-client-react/src/generated/api.schemas";
+import { SessionInfo, LoginRequest } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useToast } from "@/hooks/use-toast";
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
@@ -20,10 +20,73 @@ const DEMO_SESSION: SessionInfo = {
       business_id: "biz-001",
       business_name: "Silver Sands Motel",
       role: "owner",
-      scope: "business",
-    } as never,
+    },
   ],
 };
+
+interface ApiUserSummary {
+  id: string;
+  email: string;
+  is_active?: boolean;
+  first_name?: string;
+  last_name?: string;
+  is_superadmin?: boolean;
+}
+
+interface ApiMembershipSummary {
+  business_id: string;
+  status?: string;
+  is_owner?: boolean;
+  business_name?: string;
+  role?: string;
+}
+
+interface ApiMeResponse {
+  user?: ApiUserSummary;
+  id?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  business_id?: string;
+  active_business_id?: string;
+  memberships?: ApiMembershipSummary[];
+  roles?: string[];
+  permissions?: string[];
+}
+
+interface ApiLoginResponse {
+  access_token: string;
+  token_type?: string;
+  business_id?: string;
+  user?: ApiUserSummary;
+}
+
+function mapToSessionInfo(data: ApiMeResponse): SessionInfo {
+  const id = data.user?.id ?? data.id ?? "";
+  const email = data.user?.email ?? data.email ?? "";
+  const first_name = data.user?.first_name ?? data.first_name;
+  const last_name = data.user?.last_name ?? data.last_name;
+  const is_active = data.user?.is_active ?? true;
+  const active_business_id = data.business_id ?? data.active_business_id;
+
+  const memberships = (data.memberships ?? []).map((m) => ({
+    business_id: m.business_id,
+    business_name: m.business_name ?? "",
+    role: m.is_owner ? "owner" : (m.role ?? "member"),
+  }));
+
+  return {
+    id,
+    email,
+    first_name,
+    last_name,
+    is_active,
+    active_business_id,
+    memberships,
+    roles: data.roles ?? [],
+    permissions: data.permissions ?? [],
+  };
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -61,8 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const data = await fetchApi<SessionInfo>("/auth/me");
-      setSession(data);
+      const data = await fetchApi<ApiMeResponse>("/auth/me");
+      setSession(mapToSessionInfo(data));
     } catch {
       localStorage.removeItem("workforce_token");
       setSession(null);
@@ -90,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(DEMO_SESSION);
       return;
     }
-    const response = await fetchApi<LoginResponse>("/auth/login", {
+    const response = await fetchApi<ApiLoginResponse>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ ...credentials, business_id: null }),
     });
@@ -107,12 +170,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const switchBusiness = async (businessId: string) => {
     try {
-      const response = await fetchApi<LoginResponse>("/auth/switch-business", {
+      const response = await fetchApi<ApiLoginResponse>("/auth/switch-business", {
         method: "POST",
         body: JSON.stringify({ business_id: businessId }),
       });
       localStorage.setItem("workforce_token", response.access_token);
-      // Invalidate all business-scoped queries before reloading session
       await queryClient.invalidateQueries();
       await loadSession();
       toast({ title: "Switched business context" });
@@ -128,14 +190,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const hasPermission = (permission: string) =>
-    session?.permissions?.includes(permission) ?? false;
+    session?.permissions?.some(
+      (p) => p === permission || p === "owner:*" || p === "business:owner"
+    ) ?? false;
 
   const hasRole = (role: string) =>
-    session?.roles?.includes(role) ?? false;
+    session?.roles?.some((r) => r.toLowerCase() === role.toLowerCase()) ?? false;
 
-  // isOwner: user has the "owner" role or an ownership permission
   const isOwner = () =>
-    hasRole("owner") || hasPermission("owner:*") || hasPermission("business:owner");
+    hasRole("owner") ||
+    hasPermission("owner:*") ||
+    hasPermission("business:owner") ||
+    (session?.memberships?.some((m) => m.role?.toLowerCase() === "owner") ?? false);
 
   const canSwitchBusiness = (session?.memberships?.length ?? 0) > 1;
 

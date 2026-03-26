@@ -185,8 +185,8 @@ export function AppSidebar() {
           <p className="text-xs text-muted-foreground">Signed in as</p>
           <p className="text-sm font-medium truncate">{session?.email}</p>
           {session?.memberships && session.memberships.length > 0 && (
-            <p className="text-xs text-muted-foreground truncate">
-              {session.memberships.find(m => m.business_id === session.active_business_id)?.role}
+            <p className="text-xs text-muted-foreground truncate capitalize">
+              {session.memberships.find(m => m.business_id === session.active_business_id)?.role ?? "member"}
             </p>
           )}
         </div>

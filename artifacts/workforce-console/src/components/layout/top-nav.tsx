@@ -119,7 +119,7 @@ export function TopNav() {
                 className="gap-1.5 h-8 text-xs bg-card border-border/50 hover:bg-accent/50 hidden sm:flex"
               >
                 <Building className="w-3.5 h-3.5" />
-                <span className="truncate max-w-[90px]">{activeBusiness?.business_name}</span>
+                <span className="truncate max-w-[90px]">{activeBusiness?.business_name || activeBusiness?.business_id}</span>
                 <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
               </Button>
             </DropdownMenuTrigger>
@@ -140,8 +140,8 @@ export function TopNav() {
                 >
                   <Building className="w-3.5 h-3.5 opacity-60 shrink-0" />
                   <div className="flex flex-col min-w-0">
-                    <span className="font-medium truncate">{membership.business_name}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">{membership.role}</span>
+                    <span className="font-medium truncate">{membership.business_name || membership.business_id}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{membership.role ?? "member"}</span>
                   </div>
                 </DropdownMenuItem>
               ))}

@@ -1,9 +1,12 @@
 import type { LoginRequest, SwitchBusinessRequest } from "@workspace/api-client-react/src/generated/api.schemas";
 
 const envBase = import.meta.env.VITE_API_BASE_URL;
+// When VITE_API_BASE_URL is set, use it directly (requires CORS on the server).
+// When not set, use the relative path /api/v1 which is proxied by the Vite dev
+// server to https://hn3t.pythonanywhere.com — no CORS issues in development.
 export const API_BASE = envBase
   ? `${envBase.replace(/\/$/, "")}/api/v1`
-  : "https://hn3t.pythonanywhere.com/api/v1";
+  : "/api/v1";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
