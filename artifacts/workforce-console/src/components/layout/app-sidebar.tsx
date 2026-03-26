@@ -2,9 +2,10 @@ import {
   LayoutDashboard, DoorOpen, CheckSquare,
   Users, CalendarDays, ShieldAlert, Activity,
   Building2, Package, Clock, BarChart3, Settings,
-  Home, Wrench, Boxes
+  Home, Wrench, Boxes, ChevronsUpDown, Check, LogOut, Loader2
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +18,13 @@ import {
   SidebarMenuItem,
   SidebarFooter
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
 
 interface NavItem {
@@ -86,6 +94,107 @@ function FutureNavGroup({ label, items }: { label: string; items: { title: strin
   );
 }
 
+function BusinessSelector() {
+  const { session, switchBusiness, canSwitchBusiness, logout } = useAuth();
+  const [switching, setSwitching] = useState<string | null>(null);
+
+  const activeMembership = session?.memberships?.find(
+    (m) => m.business_id === session.active_business_id
+  ) ?? session?.memberships?.[0];
+
+  const businessName =
+    activeMembership?.business_name ||
+    (session?.active_business_id === "local" ? "Local Account" : "Unknown Business");
+
+  const role = activeMembership?.role ?? "member";
+
+  const handleSwitch = async (businessId: string) => {
+    if (businessId === session?.active_business_id) return;
+    setSwitching(businessId);
+    try {
+      await switchBusiness(businessId);
+    } finally {
+      setSwitching(null);
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-muted/40 hover:bg-muted/70 border border-border/40 hover:border-border/70 transition-all group text-left">
+          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary/15 border border-primary/25 shrink-0">
+            <Building2 className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold leading-none truncate text-foreground">
+              {businessName}
+            </p>
+            <p className="text-[10px] text-muted-foreground capitalize leading-none mt-1">
+              {role}
+            </p>
+          </div>
+          <ChevronsUpDown className="w-3.5 h-3.5 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className="w-64"
+      >
+        <div className="px-2 py-1.5">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Switch Business
+          </p>
+        </div>
+        <DropdownMenuSeparator />
+
+        {(session?.memberships ?? []).map((m) => {
+          const isActive = m.business_id === session?.active_business_id;
+          const isLoading = switching === m.business_id;
+          const name = m.business_name || (m.business_id === "local" ? "Local Account" : m.business_id);
+          return (
+            <DropdownMenuItem
+              key={m.business_id}
+              onSelect={() => handleSwitch(m.business_id)}
+              disabled={isLoading}
+              className="flex items-center gap-2.5 cursor-pointer"
+            >
+              <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 ${isActive ? "bg-primary/15 border border-primary/30" : "bg-muted border border-border/40"}`}>
+                {isLoading ? (
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                ) : isActive ? (
+                  <Check className="w-3 h-3 text-primary" />
+                ) : (
+                  <Building2 className="w-3 h-3 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${isActive ? "text-primary" : ""}`}>{name}</p>
+                <p className="text-xs text-muted-foreground capitalize">{m.role ?? "member"}</p>
+              </div>
+            </DropdownMenuItem>
+          );
+        })}
+
+        {(!session?.memberships || session.memberships.length === 0) && (
+          <div className="px-3 py-2 text-xs text-muted-foreground">No businesses found</div>
+        )}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={logout}
+          className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="text-sm">Sign out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { hasRole, session } = useAuth();
@@ -114,8 +223,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="inset" className="border-r border-border/50">
-      <SidebarHeader className="h-14 flex items-center px-4 border-b border-border/50 shrink-0">
-        <div className="flex items-center gap-3 w-full">
+      <SidebarHeader className="px-3 pt-3 pb-2 border-b border-border/50 shrink-0 gap-3">
+        <div className="flex items-center gap-3 px-1">
           <div className="bg-primary/20 p-1.5 rounded-lg border border-primary/30 shrink-0">
             <img
               src={`${import.meta.env.BASE_URL}images/logo-icon.png`}
@@ -130,6 +239,8 @@ export function AppSidebar() {
             </span>
           </div>
         </div>
+
+        <BusinessSelector />
       </SidebarHeader>
 
       <SidebarContent className="py-3 gap-0">
@@ -181,14 +292,20 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border/50 px-4 py-3">
-        <div className="flex flex-col gap-0.5">
-          <p className="text-xs text-muted-foreground">Signed in as</p>
-          <p className="text-sm font-medium truncate">{session?.email}</p>
-          {session?.memberships && session.memberships.length > 0 && (
-            <p className="text-xs text-muted-foreground truncate capitalize">
-              {session.memberships.find(m => m.business_id === session.active_business_id)?.role ?? "member"}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary uppercase">
+            {session?.first_name?.[0] ?? session?.email?.[0] ?? "?"}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <p className="text-xs font-medium truncate leading-none">
+              {session?.first_name
+                ? `${session.first_name} ${session.last_name ?? ""}`.trim()
+                : session?.email}
             </p>
-          )}
+            <p className="text-[10px] text-muted-foreground leading-none mt-0.5 truncate">
+              {session?.email}
+            </p>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>
