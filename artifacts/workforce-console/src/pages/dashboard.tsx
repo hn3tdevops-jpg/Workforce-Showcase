@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "@/lib/location-context";
-import { fetchRoomsMock, fetchTasksMock, DEMO_MODE } from "@/lib/mock-adapter";
+import { fetchRoomsMock, fetchTasksMock, fetchDashboardSummary, fetchMaintenanceBoard, DEMO_MODE } from "@/lib/mock-adapter";
 import { MOCK_ACTIVITY } from "@/lib/mock-data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
-  DoorOpen, CheckSquare, CalendarDays, Users, ArrowRight,
+  DoorOpen, CheckSquare, Users, ArrowRight,
   Activity, CheckCircle2, AlertTriangle, Wrench, ClipboardList,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -25,84 +25,121 @@ function activityIcon(type: string) {
 
 export default function Dashboard() {
   const { session } = useAuth();
-  const { selectedLocation } = useLocation();
+  const { selectedLocation, selectedLocationId } = useLocation();
+
+  const locationId = selectedLocationId ?? "";
+
+  const { data: summary, isLoading: loadingSummary } = useQuery({
+    queryKey: ["/hospitable/dashboard", locationId],
+    queryFn: () => fetchDashboardSummary(locationId),
+    enabled: !!locationId,
+  });
 
   const { data: rooms = [], isLoading: loadingRooms } = useQuery({
-    queryKey: ["/rooms", selectedLocation?.id],
-    queryFn: fetchRoomsMock,
+    queryKey: ["/rooms", locationId],
+    queryFn: () => fetchRoomsMock(locationId || undefined),
   });
 
   const { data: tasks = [], isLoading: loadingTasks } = useQuery({
-    queryKey: ["/tasks", selectedLocation?.id],
-    queryFn: fetchTasksMock,
+    queryKey: ["/tasks", locationId],
+    queryFn: () => fetchTasksMock(locationId || undefined),
+  });
+
+  const { data: maintenanceIssues = [] } = useQuery({
+    queryKey: ["/hospitable/maintenance", locationId],
+    queryFn: () => fetchMaintenanceBoard(locationId),
+    enabled: !!locationId,
   });
 
   const activeBusiness = session?.memberships.find(
     (m) => m.business_id === session.active_business_id
   );
 
-  // Room status breakdown
+  // Room status breakdown (from live rooms data)
   const roomStats = useMemo(() => {
     const counts: Record<string, number> = {};
-    rooms.forEach((r: { status?: string | null }) => {
+    (rooms as { status?: string | null }[]).forEach((r) => {
       const s = r.status ?? "unknown";
       counts[s] = (counts[s] ?? 0) + 1;
     });
     return counts;
   }, [rooms]);
 
-  // Task status breakdown
+  // Task status breakdown (from live tasks data)
   const taskStats = useMemo(() => {
     const counts: Record<string, number> = {};
-    tasks.forEach((t: { status?: string | null }) => {
+    (tasks as { status?: string | null }[]).forEach((t) => {
       const s = t.status ?? "unknown";
       counts[s] = (counts[s] ?? 0) + 1;
     });
     return counts;
   }, [tasks]);
 
-  const activeTasks = tasks.filter(
-    (t: { status?: string | null }) => t.status !== "completed" && t.status !== "cancelled"
-  );
+  // Prefer summary data for top KPIs (faster, single query), fall back to computed
+  const totalRooms = summary?.total_rooms ?? rooms.length;
+  const openTasks = summary?.open_tasks ?? (tasks as { status?: string | null }[]).filter(
+    (t) => t.status !== "completed" && t.status !== "done" && t.status !== "cancelled"
+  ).length;
+  const dirtyRooms = summary
+    ? (summary.dirty + summary.assigned + summary.cleaning)
+    : (roomStats["dirty"] ?? 0) + (roomStats["assigned"] ?? 0) + (roomStats["cleaning"] ?? 0);
+  const cleanRooms = summary
+    ? (summary.clean + summary.inspected)
+    : (roomStats["clean"] ?? 0) + (roomStats["inspected"] ?? 0);
+  const unresolvedIssues = summary?.unresolved_issues ?? (maintenanceIssues as unknown[]).length;
+
+  const isLoadingKpis = loadingSummary && loadingRooms;
 
   const statCards = [
     {
       label: "Total Rooms",
-      value: rooms.length,
+      value: totalRooms,
       icon: DoorOpen,
       color: "text-blue-400",
       bg: "bg-blue-400/10",
-      loading: loadingRooms,
+      loading: isLoadingKpis,
       link: "/app/rooms",
     },
     {
       label: "Active Tasks",
-      value: activeTasks.length,
+      value: openTasks,
       icon: CheckSquare,
       color: "text-amber-400",
       bg: "bg-amber-400/10",
-      loading: loadingTasks,
+      loading: loadingTasks && loadingSummary,
       link: "/app/tasks",
     },
     {
-      label: "Rooms Dirty",
-      value: (roomStats["dirty"] ?? 0) + (roomStats["maintenance"] ?? 0),
+      label: "Rooms Needing Attention",
+      value: dirtyRooms,
       icon: AlertTriangle,
       color: "text-red-400",
       bg: "bg-red-400/10",
-      loading: loadingRooms,
+      loading: isLoadingKpis,
       link: "/app/rooms",
     },
     {
-      label: "Rooms Clean",
-      value: roomStats["clean"] ?? 0,
+      label: "Rooms Ready",
+      value: cleanRooms,
       icon: CheckCircle2,
       color: "text-green-400",
       bg: "bg-green-400/10",
-      loading: loadingRooms,
+      loading: isLoadingKpis,
       link: "/app/rooms",
     },
   ];
+
+  if (unresolvedIssues > 0) {
+    statCards.push({
+      label: "Open Maintenance Issues",
+      value: unresolvedIssues,
+      icon: Wrench,
+      color: "text-orange-400",
+      bg: "bg-orange-400/10",
+      loading: false,
+      link: "/app/rooms",
+    });
+  }
 
   const recentActivity = DEMO_MODE ? MOCK_ACTIVITY : [];
 
@@ -153,6 +190,23 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Summary bar from hospitable dashboard */}
+      {summary && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Dirty", value: summary.dirty, status: "dirty" },
+            { label: "Cleaning", value: summary.cleaning, status: "cleaning" },
+            { label: "Inspect", value: summary.inspect, status: "inspect" },
+            { label: "Blocked", value: summary.blocked, status: "blocked" },
+          ].map(({ label, value, status }) => (
+            <div key={status} className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-card/40">
+              <StatusChip status={status} type="room" />
+              <span className="text-lg font-bold font-mono tabular-nums text-foreground">{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Room status breakdown */}

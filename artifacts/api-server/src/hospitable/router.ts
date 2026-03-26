@@ -271,13 +271,14 @@ router.get("/tasks", (req: Request, res: Response) => {
   const db = getDb();
   const { location_id, status, room_id, assigned_user_id } = req.query;
 
-  let sql = "SELECT * FROM hk_tasks WHERE 1=1";
+  let sql = `SELECT t.*, r.room_number FROM hk_tasks t
+             LEFT JOIN hk_rooms r ON r.id = t.room_id WHERE 1=1`;
   const params: any[] = [];
-  if (location_id) { sql += " AND location_id = ?"; params.push(location_id); }
-  if (status) { sql += " AND status = ?"; params.push(status); }
-  if (room_id) { sql += " AND room_id = ?"; params.push(room_id); }
-  if (assigned_user_id) { sql += " AND assigned_user_id = ?"; params.push(assigned_user_id); }
-  sql += " ORDER BY created_at DESC";
+  if (location_id) { sql += " AND t.location_id = ?"; params.push(location_id); }
+  if (status) { sql += " AND t.status = ?"; params.push(status); }
+  if (room_id) { sql += " AND t.room_id = ?"; params.push(room_id); }
+  if (assigned_user_id) { sql += " AND t.assigned_user_id = ?"; params.push(assigned_user_id); }
+  sql += " ORDER BY t.created_at DESC";
 
   ok(res, db.prepare(sql).all(...params).map(formatTask));
 });

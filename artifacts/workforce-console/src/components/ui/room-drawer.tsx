@@ -5,7 +5,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { useToast } from "@/hooks/use-toast";
-import { DoorOpen, Building2, Layers, StickyNote, ChevronDown } from "lucide-react";
+import { DoorOpen, Building2, Layers, StickyNote, ChevronDown, BedDouble, Clock } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,12 +16,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
-// Spec-defined room statuses
+// Hospitable API housekeeping statuses (operational order)
 const ROOM_STATUSES = [
-  "clean",
   "dirty",
-  "ready_for_inspection",
+  "assigned",
+  "cleaning",
+  "inspect",
   "inspected",
+  "clean",
+  "blocked",
+  // Legacy / mock-data statuses
+  "ready_for_inspection",
   "stayover",
   "dnd",
   "laundry_only",
@@ -37,6 +43,12 @@ interface Room {
   floor?: string | null;
   notes?: string | null;
   location_id?: string | null;
+  occupancy_status?: string | null;
+  inspection_status?: string | null;
+  maintenance_status?: string | null;
+  bed_type_summary?: string | null;
+  last_cleaned_at?: string | null;
+  last_inspected_at?: string | null;
 }
 
 interface RoomDrawerProps {
@@ -133,6 +145,42 @@ export function RoomDrawer({ room, open, onClose }: RoomDrawerProps) {
                   <Layers className="w-3 h-3" /> Floor
                 </div>
                 <p className="text-sm font-medium">{room.floor}</p>
+              </div>
+            )}
+            {room.occupancy_status && (
+              <div className="p-3 rounded-lg border border-border/40 bg-muted/20">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <DoorOpen className="w-3 h-3" /> Occupancy
+                </div>
+                <p className="text-sm font-medium capitalize">{room.occupancy_status.replace(/_/g, " ")}</p>
+              </div>
+            )}
+            {room.bed_type_summary && (
+              <div className="p-3 rounded-lg border border-border/40 bg-muted/20">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <BedDouble className="w-3 h-3" /> Beds
+                </div>
+                <p className="text-sm font-medium">{room.bed_type_summary}</p>
+              </div>
+            )}
+            {room.last_cleaned_at && (
+              <div className="p-3 rounded-lg border border-border/40 bg-muted/20">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <Clock className="w-3 h-3" /> Last Cleaned
+                </div>
+                <p className="text-sm font-medium">
+                  {formatDistanceToNow(new Date(room.last_cleaned_at), { addSuffix: true })}
+                </p>
+              </div>
+            )}
+            {room.last_inspected_at && (
+              <div className="p-3 rounded-lg border border-border/40 bg-muted/20">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                  <Clock className="w-3 h-3" /> Last Inspected
+                </div>
+                <p className="text-sm font-medium">
+                  {formatDistanceToNow(new Date(room.last_inspected_at), { addSuffix: true })}
+                </p>
               </div>
             )}
           </div>

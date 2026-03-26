@@ -26,6 +26,11 @@ export function StatusChip({ status, type = 'task' }: StatusChipProps) {
     if (s === 'dnd') colorClass = "bg-slate-500/10 text-slate-400 border-slate-500/30";
     if (s === 'laundry_only') colorClass = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
     if (s === 'maintenance_hold') colorClass = "bg-red-500/10 text-red-400 border-red-500/20";
+    // Hospitable API statuses
+    if (s === 'assigned') colorClass = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+    if (s === 'cleaning') colorClass = "bg-blue-500/10 text-blue-300 border-blue-400/30";
+    if (s === 'inspect') colorClass = "bg-purple-500/10 text-purple-400 border-purple-500/20";
+    if (s === 'blocked') colorClass = "bg-red-500/10 text-red-400 border-red-500/20";
     // Legacy fallbacks
     if (s === 'occupied') colorClass = "bg-blue-500/10 text-blue-400 border-blue-500/20";
     if (s === 'maintenance') colorClass = "bg-red-500/10 text-red-400 border-red-500/20";
@@ -43,6 +48,8 @@ export function StatusChip({ status, type = 'task' }: StatusChipProps) {
     if (s === 'completed') colorClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
     if (s === 'blocked') colorClass = "bg-red-500/10 text-red-400 border-red-500/20";
     if (s === 'cancelled') colorClass = "bg-muted text-muted-foreground border-border/50";
+    // Hospitable API — "done" is the wire format for completed
+    if (s === 'done') colorClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
     // Legacy fallback
     if (s === 'pending') colorClass = "bg-slate-500/10 text-slate-400 border-slate-500/20";
   }

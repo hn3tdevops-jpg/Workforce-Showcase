@@ -178,7 +178,7 @@ const STARTER_SUPPLY_PARS = [
   { item_code: "shampoo", item_name: "Shampoo", expected_qty: 2, min_qty: 1, unit: "bottle" },
 ];
 
-const SILVER_SANDS_LOCATION_ID = "loc-ss-001";
+const SILVER_SANDS_LOCATION_ID = "loc-001";
 
 function seedIfEmpty(db: Database.Database): void {
   const existing = db.prepare("SELECT COUNT(*) as count FROM property_buildings").get() as { count: number };

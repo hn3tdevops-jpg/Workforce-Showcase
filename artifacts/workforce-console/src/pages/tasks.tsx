@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTasksMock, fetchUsers, assignTask, updateTaskStatus, DEMO_MODE } from "@/lib/mock-adapter";
 import { useLocation } from "@/lib/location-context";
-import { MOCK_ROOMS } from "@/lib/mock-data";
 import type { MockUser } from "@/lib/mock-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -46,6 +45,8 @@ interface AnyTask {
   assigned_to?: string | null;
   location_id?: string | null;
   room_id?: string | null;
+  /** Populated by hospitable API (joined from hk_rooms) */
+  room_number?: string | null;
 }
 
 function priorityOrder(p: string | null | undefined) {
@@ -75,7 +76,7 @@ function TaskRow({
   const assigneeId = getAssigneeId(task);
   const assignee = users.find((u) => u.id === assigneeId);
   const dueAt = getDueAt(task);
-  const room = task.room_id ? MOCK_ROOMS.find((r) => r.id === task.room_id) : null;
+  const roomLabel = task.room_number ? `Room ${task.room_number}` : null;
   const isOverdue =
     dueAt &&
     new Date(dueAt) < new Date() &&
@@ -101,10 +102,10 @@ function TaskRow({
           {task.task_type && (
             <span className="font-mono uppercase tracking-wide">{task.task_type}</span>
           )}
-          {room && (
+          {roomLabel && (
             <span className="flex items-center gap-1 text-muted-foreground/80">
               <DoorOpen className="w-3 h-3" />
-              {room.name}
+              {roomLabel}
             </span>
           )}
           {dueAt && (

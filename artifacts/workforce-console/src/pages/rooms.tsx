@@ -24,11 +24,15 @@ interface AnyRoom {
   location_id?: string | null;
 }
 
-// Spec-defined room statuses, sorted by operational urgency
+// Room statuses sorted by operational urgency (hospitable + legacy)
 const STATUS_ORDER = [
+  "blocked",
   "maintenance_hold",
   "dirty",
+  "assigned",
+  "cleaning",
   "laundry_only",
+  "inspect",
   "ready_for_inspection",
   "dnd",
   "stayover",
