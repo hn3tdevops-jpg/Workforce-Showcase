@@ -98,70 +98,170 @@ Utility scripts package. Each script is a `.ts` file in `src/` with a correspond
 # Workforce Frontend Demo
 
 ## Goal
-Build a frontend demo for Workforce that showcases:
-1. User administration
+Build a demo-ready frontend for Workforce that proves:
+
+1. Workforce user administration
 2. Hospitable room and task operations
 
-## Stack
+This frontend is for demonstration, but it should still feel like a real internal operations product.
+
+## Recommended stack
 - React
 - TypeScript
 - Vite
-- Clean component structure
-- Dark mode first
-- API-driven UI using the Workforce backend
 
-## UI priorities
-The frontend must look like an internal operations product, not a toy app.
+## Design goals
+- dark mode first
+- clean operational dashboard feel
+- responsive for desktop and tablet
+- fast, simple workflows
+- reusable components
+- clear business and location context throughout the app
 
-### Required screens
-1. Dashboard
-   - cards for room counts by status
-   - cards for task counts by status
-   - quick location switcher
-2. Users
-   - user table
-   - role assignment drawer/modal
-   - scoped role display by business/location
-3. Rooms
-   - room list/grid by location
-   - status badges
-   - room detail side panel
-4. Tasks
-   - task list / kanban-like grouped list
-   - assign task action
-   - update task status action
+## Product structure
 
-## Product rules
-- Workforce owns user administration and permissions.
-- Hospitable screens sit inside the same app and use the same selected business/location context.
-- Keep the UX fast and operational.
-- No unnecessary marketing pages.
-- No unrelated feature expansion.
+### Workforce owns
+- user administration
+- roles
+- permissions
+- business context
+- location context
 
-## UX rules
-- Dark theme by default
-- Clear business selector and location selector
-- Responsive enough for tablet and desktop
-- Tables and cards should feel clean and production-oriented
-- Use optimistic UI only where simple and safe
-- Show loading, empty, and error states
+### Hospitable inside Workforce owns
+- room views
+- room status
+- task views
+- task assignment
+- task status updates
+- inspections and issues if backend is ready
 
-## API integration rules
-Assume an environment variable for backend base URL, such as:
-VITE_API_BASE_URL
+## Required screens
 
-Create a small API client layer and typed request/response models.
+### 1. Dashboard
+Show:
+- room counts by status
+- task counts by status
+- selected business and location
+- optional recent activity list if available
 
-## Demo fallback
+### 2. Users
+Show:
+- user table
+- scoped role assignments
+- job title label as display-only
+- role assignment modal or drawer
+
+### 3. Rooms
+Show:
+- room list or grid by selected location
+- status badges
+- room details drawer or modal
+- simple room edit capability if backend supports it
+
+### 4. Tasks
+Show:
+- task list grouped by status
+- assign task action
+- update task status action
+- room reference and assignee display
+
+## App shell
+Create:
+- top navigation
+- sidebar
+- business selector
+- location selector
+
+The selected business and location should drive the data shown on dashboard, rooms, and tasks screens.
+
+## Technical rules
+- Use environment variable `VITE_API_BASE_URL`
+- Put API calls in a dedicated API client layer
+- Use typed interfaces for server responses
+- Use reusable UI components
+- Keep routing simple and clear
+- Add loading, empty, and error states
+- Prefer maintainable structure over over-engineering
+
+## Mock mode requirement
 If some backend endpoints are not ready yet:
-- keep the real API structure
-- allow temporary local mock data adapters behind a toggle
-- make it easy to switch from mock to live API
+- preserve the real API shapes
+- implement a mock adapter with the same response structure
+- make it easy to switch between mock and live API
 
-## First implementation order
+Suggested approach:
+- `src/lib/api/` for live API functions
+- `src/lib/mock/` for mock data and mock service functions
+- `src/config/` for environment and feature toggles
+
+## Data contract targets
+
+### Users / RBAC
+- GET /users
+- GET /roles
+- POST /users/{id}/assignments
+- DELETE /users/{id}/assignments/{assignment_id}
+
+### Rooms
+- GET /locations/{location_id}/rooms
+- POST /locations/{location_id}/rooms
+- PATCH /rooms/{room_id}
+
+### Tasks
+- GET /locations/{location_id}/tasks
+- POST /locations/{location_id}/tasks
+- POST /tasks/{task_id}/assign
+- POST /tasks/{task_id}/status
+
+### Dashboard
+- GET /locations/{location_id}/dashboard-summary
+
+## Visual rules
+- dark background
+- clear elevated cards
+- readable tables
+- compact but not cramped spacing
+- obvious status color treatment
+- admin-product feel, not consumer app feel
+
+## Suggested folder structure
+- `src/app/`
+- `src/components/`
+- `src/features/dashboard/`
+- `src/features/users/`
+- `src/features/rooms/`
+- `src/features/tasks/`
+- `src/lib/api/`
+- `src/lib/mock/`
+- `src/context/`
+- `src/types/`
+
+## Build order
 1. app shell and routing
-2. business/location context
-3. dashboard
+2. business and location context
+3. dashboard page
 4. users page
 5. rooms page
 6. tasks page
+7. mock/live API toggle cleanup
+
+## Demo data expectations
+If mock mode is used, seed:
+- 1 business
+- 2 locations
+- 6 users
+- 10 to 20 rooms
+- 8 to 12 active tasks
+- mixed room statuses
+- mixed task statuses
+- 1 maintenance hold
+- 1 failed inspection if inspection support is present
+
+## Final expectation
+The demo should support this flow:
+1. Admin views users
+2. Admin assigns a scoped role
+3. Manager views rooms for a location
+4. Manager assigns a room task
+5. Housekeeper moves task to in progress and then completed
+6. Dashboard reflects the result
