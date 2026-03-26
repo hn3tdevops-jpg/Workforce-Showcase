@@ -17,9 +17,24 @@ import {
   MOCK_LOCATIONS,
   MOCK_ROOMS,
   MOCK_TASKS,
+  MOCK_SHIFTS,
+  MOCK_SWAP_REQUESTS,
+  MOCK_MARKETPLACE_LISTINGS,
   type MockUser,
   type MockLocation,
+  type MockShift,
+  type MockSwapRequest,
+  type MockMarketplaceListing,
+  type ShiftRole,
+  type ShiftStatus,
+  type SwapStatus,
+  type MarketplaceStatus,
 } from "./mock-data";
+
+export type {
+  MockShift, MockSwapRequest, MockMarketplaceListing,
+  ShiftRole, ShiftStatus, SwapStatus, MarketplaceStatus,
+};
 
 export const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
@@ -362,4 +377,197 @@ export async function fetchMaintenanceBoard(locationId: string): Promise<unknown
   return fetchApi<unknown[]>(
     `/hospitable/dashboard/maintenance-board?location_id=${encodeURIComponent(locationId)}`
   );
+}
+
+// ── Scheduling API ────────────────────────────────────────────────────────────
+
+export async function fetchShifts(
+  locationId?: string,
+  weekStart?: string,
+): Promise<MockShift[]> {
+  if (DEMO_MODE) {
+    let shifts = [...MOCK_SHIFTS];
+    if (locationId) shifts = shifts.filter(s => s.location_id === locationId);
+    if (weekStart) {
+      const start = new Date(weekStart);
+      const end   = new Date(weekStart);
+      end.setDate(start.getDate() + 7);
+      shifts = shifts.filter(s => {
+        const d = new Date(s.date);
+        return d >= start && d < end;
+      });
+    }
+    return Promise.resolve(shifts);
+  }
+  const params = new URLSearchParams();
+  if (locationId) params.set("location_id", locationId);
+  if (weekStart)  params.set("week_start", weekStart);
+  return fetchApi<MockShift[]>(`/shifts/?${params}`);
+}
+
+export async function createShift(data: Omit<MockShift, "id">): Promise<MockShift> {
+  if (DEMO_MODE) {
+    const shift: MockShift = { ...data, id: `shift-${Date.now()}` };
+    MOCK_SHIFTS.push(shift);
+    return Promise.resolve(shift);
+  }
+  return fetchApi<MockShift>("/shifts/", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function updateShift(
+  shiftId: string,
+  patch: Partial<Omit<MockShift, "id">>,
+): Promise<MockShift> {
+  if (DEMO_MODE) {
+    const idx = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+    if (idx !== -1) Object.assign(MOCK_SHIFTS[idx], patch);
+    return Promise.resolve(MOCK_SHIFTS[idx]);
+  }
+  return fetchApi<MockShift>(`/shifts/${shiftId}`, {
+    method: "PATCH", body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteShift(shiftId: string): Promise<void> {
+  if (DEMO_MODE) {
+    const idx = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+    if (idx !== -1) MOCK_SHIFTS.splice(idx, 1);
+    return Promise.resolve();
+  }
+  return fetchApi<void>(`/shifts/${shiftId}`, { method: "DELETE" });
+}
+
+export async function addAssigneeToShift(shiftId: string, userId: string): Promise<MockShift> {
+  if (DEMO_MODE) {
+    const shift = MOCK_SHIFTS.find(s => s.id === shiftId);
+    if (shift && !shift.assignee_ids.includes(userId)) {
+      shift.assignee_ids.push(userId);
+      if (shift.assignee_ids.length >= shift.capacity) shift.status = "filled";
+      else shift.status = "partial";
+    }
+    return Promise.resolve(shift!);
+  }
+  return fetchApi<MockShift>(`/shifts/${shiftId}/assignees`, {
+    method: "POST", body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export async function removeAssigneeFromShift(shiftId: string, userId: string): Promise<MockShift> {
+  if (DEMO_MODE) {
+    const shift = MOCK_SHIFTS.find(s => s.id === shiftId);
+    if (shift) {
+      shift.assignee_ids = shift.assignee_ids.filter(id => id !== userId);
+      shift.status = shift.assignee_ids.length === 0 ? "open" : "partial";
+    }
+    return Promise.resolve(shift!);
+  }
+  return fetchApi<MockShift>(`/shifts/${shiftId}/assignees/${userId}`, { method: "DELETE" });
+}
+
+// ── Swap Requests ─────────────────────────────────────────────────────────────
+
+export async function fetchSwapRequests(): Promise<MockSwapRequest[]> {
+  if (DEMO_MODE) return Promise.resolve([...MOCK_SWAP_REQUESTS]);
+  return fetchApi<MockSwapRequest[]>("/shifts/swaps/");
+}
+
+export async function createSwapRequest(
+  data: Omit<MockSwapRequest, "id" | "created_at">,
+): Promise<MockSwapRequest> {
+  if (DEMO_MODE) {
+    const req: MockSwapRequest = {
+      ...data,
+      id: `swap-${Date.now()}`,
+      created_at: new Date().toISOString(),
+    };
+    MOCK_SWAP_REQUESTS.push(req);
+    return Promise.resolve(req);
+  }
+  return fetchApi<MockSwapRequest>("/shifts/swaps/", {
+    method: "POST", body: JSON.stringify(data),
+  });
+}
+
+export async function resolveSwapRequest(
+  swapId: string,
+  action: "approved" | "denied" | "accepted" | "withdrawn",
+): Promise<MockSwapRequest> {
+  if (DEMO_MODE) {
+    const req = MOCK_SWAP_REQUESTS.find(s => s.id === swapId);
+    if (req) {
+      req.status = action;
+      req.resolved_at = new Date().toISOString();
+      if (action === "approved" && req.target_user_id) {
+        const shift = MOCK_SHIFTS.find(s => s.id === req.shift_id);
+        if (shift) {
+          shift.assignee_ids = shift.assignee_ids.filter(id => id !== req.requester_id);
+          if (!shift.assignee_ids.includes(req.target_user_id)) {
+            shift.assignee_ids.push(req.target_user_id);
+          }
+        }
+      }
+    }
+    return Promise.resolve(req!);
+  }
+  return fetchApi<MockSwapRequest>(`/shifts/swaps/${swapId}/${action}`, { method: "POST" });
+}
+
+// ── Shift Marketplace ─────────────────────────────────────────────────────────
+
+export async function fetchMarketplaceListings(): Promise<MockMarketplaceListing[]> {
+  if (DEMO_MODE) return Promise.resolve([...MOCK_MARKETPLACE_LISTINGS]);
+  return fetchApi<MockMarketplaceListing[]>("/shifts/marketplace/");
+}
+
+export async function postToMarketplace(
+  data: Omit<MockMarketplaceListing, "id" | "posted_at" | "claimed_by_user_id" | "claimed_at">,
+): Promise<MockMarketplaceListing> {
+  if (DEMO_MODE) {
+    const listing: MockMarketplaceListing = {
+      ...data,
+      id: `mkt-${Date.now()}`,
+      posted_at: new Date().toISOString(),
+      claimed_by_user_id: null,
+      claimed_at: null,
+    };
+    MOCK_MARKETPLACE_LISTINGS.push(listing);
+    return Promise.resolve(listing);
+  }
+  return fetchApi<MockMarketplaceListing>("/shifts/marketplace/", {
+    method: "POST", body: JSON.stringify(data),
+  });
+}
+
+export async function claimMarketplaceListing(
+  listingId: string,
+  userId: string,
+): Promise<MockMarketplaceListing> {
+  if (DEMO_MODE) {
+    const listing = MOCK_MARKETPLACE_LISTINGS.find(l => l.id === listingId);
+    if (listing && listing.status === "open") {
+      listing.status = "claimed";
+      listing.claimed_by_user_id = userId;
+      listing.claimed_at = new Date().toISOString();
+      const shift = MOCK_SHIFTS.find(s => s.id === listing.shift_id);
+      if (shift && !shift.assignee_ids.includes(userId)) {
+        shift.assignee_ids.push(userId);
+        shift.status = shift.assignee_ids.length >= shift.capacity ? "filled" : "partial";
+      }
+    }
+    return Promise.resolve(listing!);
+  }
+  return fetchApi<MockMarketplaceListing>(`/shifts/marketplace/${listingId}/claim`, {
+    method: "POST", body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export async function cancelMarketplaceListing(listingId: string): Promise<MockMarketplaceListing> {
+  if (DEMO_MODE) {
+    const listing = MOCK_MARKETPLACE_LISTINGS.find(l => l.id === listingId);
+    if (listing) listing.status = "cancelled";
+    return Promise.resolve(listing!);
+  }
+  return fetchApi<MockMarketplaceListing>(`/shifts/marketplace/${listingId}/cancel`, {
+    method: "POST",
+  });
 }
