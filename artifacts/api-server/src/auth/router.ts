@@ -22,14 +22,26 @@ function verifyPassword(password: string, stored: string): boolean {
   }
 }
 
+const SILVER_SANDS_BUSINESS_ID = "biz-silver-sands";
+
 function buildMinimalUser(email: string) {
   return {
     id: `local-${email}`,
     email,
-    name: email.split("@")[0],
+    first_name: email.split("@")[0],
+    last_name: "",
+    is_active: true,
+    active_business_id: SILVER_SANDS_BUSINESS_ID,
     role: "admin",
-    memberships: [{ business_id: "local", role: "admin" }],
+    roles: ["admin", "owner"],
     permissions: ["*"],
+    memberships: [
+      {
+        business_id: SILVER_SANDS_BUSINESS_ID,
+        business_name: "Silver Sands Motel",
+        role: "owner",
+      },
+    ],
   };
 }
 

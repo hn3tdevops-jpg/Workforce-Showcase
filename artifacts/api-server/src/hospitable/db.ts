@@ -94,6 +94,8 @@ function initSchema(db: Database.Database): void {
       occupancy_status    TEXT    NOT NULL DEFAULT 'vacant',
       inspection_status   TEXT    NOT NULL DEFAULT 'not_required',
       maintenance_status  TEXT    NOT NULL DEFAULT 'ok',
+      pet_policy          TEXT    NOT NULL DEFAULT 'standard',
+      smoking_status      TEXT    NOT NULL DEFAULT 'non_smoking',
       notes               TEXT,
       last_cleaned_at     TEXT,
       last_inspected_at   TEXT,
@@ -173,27 +175,130 @@ function initSchema(db: Database.Database): void {
 }
 
 const STARTER_ASSETS = [
-  { asset_type: "tv", asset_name: "Television", quantity_expected: 1, quantity_present: 1 },
-  { asset_type: "fridge", asset_name: "Mini Fridge", quantity_expected: 1, quantity_present: 1 },
-  { asset_type: "microwave", asset_name: "Microwave", quantity_expected: 1, quantity_present: 1 },
-  { asset_type: "coffee_maker", asset_name: "Coffee Maker", quantity_expected: 1, quantity_present: 1 },
-  { asset_type: "hvac", asset_name: "Heater / AC Unit", quantity_expected: 1, quantity_present: 1 },
+  { asset_type: "tv",          asset_name: "Television",      qty: 1 },
+  { asset_type: "fridge",      asset_name: "Mini Fridge",     qty: 1 },
+  { asset_type: "microwave",   asset_name: "Microwave",       qty: 1 },
+  { asset_type: "coffee_maker",asset_name: "Coffee Maker",    qty: 1 },
+  { asset_type: "hvac",        asset_name: "Heater / AC Unit",qty: 1 },
 ];
 
 const STARTER_SUPPLY_PARS = [
-  { item_code: "towel_bath", item_name: "Bath Towels", expected_qty: 4, min_qty: 2, unit: "ea" },
-  { item_code: "towel_hand", item_name: "Hand Towels", expected_qty: 4, min_qty: 2, unit: "ea" },
-  { item_code: "towel_wash", item_name: "Washcloths", expected_qty: 4, min_qty: 2, unit: "ea" },
-  { item_code: "sheet_flat", item_name: "Flat Sheets", expected_qty: 2, min_qty: 1, unit: "ea" },
-  { item_code: "sheet_fitted", item_name: "Fitted Sheets", expected_qty: 2, min_qty: 1, unit: "ea" },
-  { item_code: "pillowcase", item_name: "Pillowcases", expected_qty: 4, min_qty: 2, unit: "ea" },
-  { item_code: "blanket", item_name: "Blankets", expected_qty: 2, min_qty: 1, unit: "ea" },
-  { item_code: "trash_bag", item_name: "Trash Bags", expected_qty: 3, min_qty: 1, unit: "ea" },
-  { item_code: "soap_bar", item_name: "Bar Soap", expected_qty: 4, min_qty: 2, unit: "ea" },
-  { item_code: "shampoo", item_name: "Shampoo", expected_qty: 2, min_qty: 1, unit: "bottle" },
+  { item_code: "towel_bath",   item_name: "Bath Towels",    expected_qty: 4, min_qty: 2, unit: "ea" },
+  { item_code: "towel_hand",   item_name: "Hand Towels",    expected_qty: 4, min_qty: 2, unit: "ea" },
+  { item_code: "towel_wash",   item_name: "Washcloths",     expected_qty: 4, min_qty: 2, unit: "ea" },
+  { item_code: "sheet_flat",   item_name: "Flat Sheets",    expected_qty: 2, min_qty: 1, unit: "ea" },
+  { item_code: "sheet_fitted", item_name: "Fitted Sheets",  expected_qty: 2, min_qty: 1, unit: "ea" },
+  { item_code: "pillowcase",   item_name: "Pillowcases",    expected_qty: 4, min_qty: 2, unit: "ea" },
+  { item_code: "blanket",      item_name: "Blankets",       expected_qty: 2, min_qty: 1, unit: "ea" },
+  { item_code: "trash_bag",    item_name: "Trash Bags",     expected_qty: 3, min_qty: 1, unit: "ea" },
+  { item_code: "soap_bar",     item_name: "Bar Soap",       expected_qty: 4, min_qty: 2, unit: "ea" },
+  { item_code: "shampoo",      item_name: "Shampoo",        expected_qty: 2, min_qty: 1, unit: "bottle" },
 ];
 
-const SILVER_SANDS_LOCATION_ID = "loc-001";
+const LOCATION_ID = "loc-001";
+
+// ─── Room data from Silver Sands Motel Room Map ────────────────────────────
+// Columns: num, bedType, petPolicy, hkStatus, assignedWorker, maintenanceFlag
+// hkStatus: clean | dirty | assigned | cleaning | inspect | inspected | blocked
+// petPolicy: standard | no_pets
+type RoomSeed = {
+  num: string;
+  bedType: string;       // K | Q | QQ | QQQ
+  petPolicy: string;     // standard | no_pets
+  hkStatus: string;
+  assignedWorker?: string;
+  maintenanceFlag?: string;
+};
+
+function bedLabel(type: string): string {
+  switch (type) {
+    case "K":   return "1 King";
+    case "Q":   return "1 Queen";
+    case "QQ":  return "2 Queens";
+    case "QQQ": return "3 Queens";
+    default:    return type;
+  }
+}
+
+function bedCount(type: string): number {
+  switch (type) { case "QQQ": return 3; case "QQ": return 2; default: return 1; }
+}
+
+function roomType(type: string): string {
+  switch (type) {
+    case "K":   return "King Standard";
+    case "Q":   return "Queen Standard";
+    case "QQ":  return "Double Queen";
+    case "QQQ": return "Triple Queen";
+    default:    return type;
+  }
+}
+
+// Building 1 · Floor 1  (rooms 1–12)
+const B1F1: RoomSeed[] = [
+  { num: "1",  bedType: "K",  petPolicy: "standard", hkStatus: "dirty",    maintenanceFlag: "plumbing" },
+  { num: "2",  bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "3",  bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "4",  bedType: "K",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "5",  bedType: "K",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "6",  bedType: "K",  petPolicy: "standard", hkStatus: "clean",    assignedWorker: "Unassigned" },
+  { num: "7",  bedType: "K",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "8",  bedType: "Q",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "9",  bedType: "Q",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "10", bedType: "Q",  petPolicy: "standard", hkStatus: "clean",    assignedWorker: "Unassigned" },
+  { num: "11", bedType: "K",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "12", bedType: "Q",  petPolicy: "standard", hkStatus: "dirty" },
+];
+
+// Building 1 · Floor 2  (rooms 14–33, no room 13)
+const B1F2: RoomSeed[] = [
+  { num: "14", bedType: "QQQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "15", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "16", bedType: "K",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "17", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "18", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "19", bedType: "QQ",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "20", bedType: "QQ",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "21", bedType: "QQ",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "22", bedType: "QQ",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "23", bedType: "QQ",  petPolicy: "standard", hkStatus: "dirty" },
+  { num: "24", bedType: "K",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "25", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "26", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "27", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "28", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "29", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "30", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "31", bedType: "Q",   petPolicy: "standard", hkStatus: "clean",   assignedWorker: "Unassigned" },
+  { num: "32", bedType: "Q",   petPolicy: "standard", hkStatus: "dirty" },
+  { num: "33", bedType: "QQQ", petPolicy: "standard", hkStatus: "dirty" },
+];
+
+// Building 2 · Floor 1  (rooms 50–58)
+const B2F1: RoomSeed[] = [
+  { num: "50", bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "51", bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "52", bedType: "QQ", petPolicy: "standard", hkStatus: "clean",   assignedWorker: "Robert Garrett" },
+  { num: "53", bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "54", bedType: "K",  petPolicy: "standard", hkStatus: "clean",   assignedWorker: "Robert Garrett" },
+  { num: "55", bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "56", bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "57", bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+  { num: "58", bedType: "QQ", petPolicy: "standard", hkStatus: "dirty" },
+];
+
+// Building 2 · Floor 2  (rooms 60–68, No Pets wing)
+const B2F2: RoomSeed[] = [
+  { num: "60", bedType: "K",  petPolicy: "no_pets", hkStatus: "dirty" },
+  { num: "61", bedType: "QQ", petPolicy: "no_pets", hkStatus: "clean",   assignedWorker: "Robert Garrett" },
+  { num: "62", bedType: "QQ", petPolicy: "no_pets", hkStatus: "dirty" },
+  { num: "63", bedType: "QQ", petPolicy: "no_pets", hkStatus: "dirty" },
+  { num: "64", bedType: "QQ", petPolicy: "no_pets", hkStatus: "clean",   assignedWorker: "Robert Garrett" },
+  { num: "65", bedType: "QQ", petPolicy: "no_pets", hkStatus: "dirty" },
+  { num: "66", bedType: "QQ", petPolicy: "no_pets", hkStatus: "dirty" },
+  { num: "67", bedType: "QQ", petPolicy: "no_pets", hkStatus: "dirty" },
+  { num: "68", bedType: "QQ", petPolicy: "no_pets", hkStatus: "dirty" },
+];
 
 function seedIfEmpty(db: Database.Database): void {
   const existing = db.prepare("SELECT COUNT(*) as count FROM property_buildings").get() as { count: number };
@@ -202,50 +307,16 @@ function seedIfEmpty(db: Database.Database): void {
   const insertBuilding = db.prepare(
     "INSERT INTO property_buildings (location_id, code, name, sort_order) VALUES (?, ?, ?, ?)"
   );
-  const buildingId = (insertBuilding.run(SILVER_SANDS_LOCATION_ID, "B1", "Building 1", 0)).lastInsertRowid as number;
-
   const insertFloor = db.prepare(
     "INSERT INTO property_floors (building_id, floor_number, label, sort_order) VALUES (?, ?, ?, ?)"
   );
-  const floorId = (insertFloor.run(buildingId, 1, "Floor 1", 0)).lastInsertRowid as number;
-
-  const insertSector = db.prepare(
-    "INSERT INTO property_sectors (floor_id, code, name, description, sort_order) VALUES (?, ?, ?, ?, ?)"
-  );
-  const northId = (insertSector.run(floorId, "north", "North Side", "Rooms 7-12 on the north side", 0)).lastInsertRowid as number;
-  const southId = (insertSector.run(floorId, "south", "South Side", "Rooms 1-6 on the south side", 1)).lastInsertRowid as number;
-
-  const insertGroup = db.prepare(
-    "INSERT INTO hk_room_groups (location_id, name, color, description) VALUES (?, ?, ?, ?)"
-  );
-  const northGroupId = (insertGroup.run(SILVER_SANDS_LOCATION_ID, "North Group", "#3b82f6", "North side rooms 7-12")).lastInsertRowid as number;
-  const southGroupId = (insertGroup.run(SILVER_SANDS_LOCATION_ID, "South Group", "#10b981", "South side rooms 1-6")).lastInsertRowid as number;
-
   const insertRoom = db.prepare(`
     INSERT INTO hk_rooms
-      (location_id, building_id, floor_id, sector_id, room_group_id, room_number, room_type,
-       bed_count, bed_type_summary, housekeeping_status, occupancy_status, inspection_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (location_id, building_id, floor_id, room_number, room_type,
+       bed_count, bed_type_summary, housekeeping_status, occupancy_status,
+       inspection_status, pet_policy, smoking_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'non_smoking')
   `);
-
-  const SOUTH_ROOMS = [
-    { num: "1",  type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "clean",      occ: "vacant",   insp: "not_required" },
-    { num: "2",  type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "dirty",      occ: "checkout", insp: "not_required" },
-    { num: "3",  type: "King Suite",     beds: 1, bed_summary: "1 King",  hk: "cleaning",   occ: "checkout", insp: "not_required" },
-    { num: "4",  type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "inspect",    occ: "checkout", insp: "pending" },
-    { num: "5",  type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "dirty",      occ: "checkout", insp: "not_required" },
-    { num: "6",  type: "Double Room",    beds: 2, bed_summary: "2 Doubles", hk: "blocked",  occ: "ooo",      insp: "not_required" },
-  ];
-
-  const NORTH_ROOMS = [
-    { num: "7",  type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "dirty",      occ: "checkout", insp: "not_required" },
-    { num: "8",  type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "cleaning",   occ: "checkout", insp: "not_required" },
-    { num: "9",  type: "King Suite",     beds: 1, bed_summary: "1 King",  hk: "inspected",  occ: "vacant",   insp: "passed" },
-    { num: "10", type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "inspect",    occ: "checkout", insp: "pending" },
-    { num: "11", type: "Queen Standard", beds: 1, bed_summary: "1 Queen", hk: "dirty",      occ: "checkout", insp: "not_required" },
-    { num: "12", type: "Double Room",    beds: 2, bed_summary: "2 Doubles", hk: "dirty",    occ: "checkout", insp: "not_required" },
-  ];
-
   const insertAsset = db.prepare(
     "INSERT INTO hk_room_assets (room_id, asset_type, asset_name, quantity_expected, quantity_present) VALUES (?, ?, ?, ?, ?)"
   );
@@ -253,47 +324,78 @@ function seedIfEmpty(db: Database.Database): void {
     "INSERT INTO hk_room_supply_pars (room_id, item_code, item_name, expected_qty, min_qty, unit) VALUES (?, ?, ?, ?, ?, ?)"
   );
 
-  for (const r of SOUTH_ROOMS) {
-    const roomId = (insertRoom.run(
-      SILVER_SANDS_LOCATION_ID, buildingId, floorId, southId, southGroupId,
-      r.num, r.type, r.beds, r.bed_summary, r.hk, r.occ, r.insp
-    )).lastInsertRowid as number;
-    for (const a of STARTER_ASSETS) insertAsset.run(roomId, a.asset_type, a.asset_name, a.quantity_expected, a.quantity_present);
-    for (const s of STARTER_SUPPLY_PARS) insertSupply.run(roomId, s.item_code, s.item_name, s.expected_qty, s.min_qty, s.unit);
+  function seedFloor(buildingId: number, floorNum: number, label: string, sort: number, rooms: RoomSeed[]): void {
+    const floorId = (insertFloor.run(buildingId, floorNum, label, sort)).lastInsertRowid as number;
+    for (const r of rooms) {
+      const hkStatus = r.hkStatus;
+      const occStatus = hkStatus === "dirty" ? "checkout" : "vacant";
+      const inspStatus = hkStatus === "inspect" ? "pending" : "not_required";
+
+      const roomId = (insertRoom.run(
+        LOCATION_ID, buildingId, floorId,
+        r.num, roomType(r.bedType),
+        bedCount(r.bedType), bedLabel(r.bedType),
+        hkStatus, occStatus, inspStatus, r.petPolicy
+      )).lastInsertRowid as number;
+
+      for (const a of STARTER_ASSETS) {
+        insertAsset.run(roomId, a.asset_type, a.asset_name, a.qty, a.qty);
+      }
+      for (const s of STARTER_SUPPLY_PARS) {
+        insertSupply.run(roomId, s.item_code, s.item_name, s.expected_qty, s.min_qty, s.unit);
+      }
+    }
   }
 
-  for (const r of NORTH_ROOMS) {
-    const roomId = (insertRoom.run(
-      SILVER_SANDS_LOCATION_ID, buildingId, floorId, northId, northGroupId,
-      r.num, r.type, r.beds, r.bed_summary, r.hk, r.occ, r.insp
-    )).lastInsertRowid as number;
-    for (const a of STARTER_ASSETS) insertAsset.run(roomId, a.asset_type, a.asset_name, a.quantity_expected, a.quantity_present);
-    for (const s of STARTER_SUPPLY_PARS) insertSupply.run(roomId, s.item_code, s.item_name, s.expected_qty, s.min_qty, s.unit);
-  }
+  const b1Id = (insertBuilding.run(LOCATION_ID, "B1", "Building 1", 0)).lastInsertRowid as number;
+  seedFloor(b1Id, 1, "Floor 1", 0, B1F1);
+  seedFloor(b1Id, 2, "Floor 2", 1, B1F2);
 
+  const b2Id = (insertBuilding.run(LOCATION_ID, "B2", "Building 2", 1)).lastInsertRowid as number;
+  seedFloor(b2Id, 1, "Floor 1", 0, B2F1);
+  seedFloor(b2Id, 2, "Floor 2 – No Pets", 1, B2F2);
+
+  // ── Seed starter tasks for dirty rooms needing attention ──────────────────
   const insertTask = db.prepare(`
     INSERT INTO hk_tasks (location_id, room_id, task_type, title, priority, status, assigned_user_id)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
+  const rooms = db.prepare(
+    "SELECT id, room_number, housekeeping_status FROM hk_rooms WHERE location_id = ?"
+  ).all(LOCATION_ID) as Array<{ id: number; room_number: string; housekeeping_status: string }>;
 
-  const rooms = db.prepare("SELECT id, room_number FROM hk_rooms WHERE location_id = ?").all(SILVER_SANDS_LOCATION_ID) as Array<{ id: number; room_number: string }>;
-  const roomMap = Object.fromEntries(rooms.map(r => [r.room_number, r.id]));
+  const dirtyRooms = rooms.filter(r => r.housekeeping_status === "dirty").slice(0, 12);
+  for (const r of dirtyRooms) {
+    insertTask.run(
+      LOCATION_ID, r.id, "clean_checkout",
+      `Checkout Clean – Room ${r.room_number}`,
+      "normal", "open", null
+    );
+  }
 
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["2"], "clean_checkout", "Checkout Clean – Room 2",  "normal", "open",        null);
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["3"], "clean_checkout", "Checkout Clean – Room 3",  "normal", "in_progress", "user-maria");
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["4"], "inspection",     "Inspection – Room 4",       "normal", "assigned",    "user-linda");
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["5"], "clean_checkout", "Checkout Clean – Room 5",  "high",   "open",        null);
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["7"], "clean_checkout", "Checkout Clean – Room 7",  "normal", "open",        null);
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["8"], "clean_stayover", "Stayover Clean – Room 8",  "normal", "in_progress", "user-priya");
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["10"],"inspection",     "Inspection – Room 10",     "normal", "assigned",    "user-linda");
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["11"],"clean_checkout", "Checkout Clean – Room 11", "normal", "open",        null);
-  insertTask.run(SILVER_SANDS_LOCATION_ID, roomMap["12"],"clean_checkout", "Checkout Clean – Room 12", "normal", "open",        null);
+  // Assigned-worker rooms get "assigned" tasks
+  const robertRooms = [...B2F1, ...B2F2].filter(r => r.assignedWorker === "Robert Garrett");
+  for (const r of robertRooms) {
+    const found = rooms.find(x => x.room_number === r.num);
+    if (found) {
+      insertTask.run(
+        LOCATION_ID, found.id, "inspection",
+        `Inspection – Room ${r.num}`,
+        "normal", "assigned", "user-robert-garrett"
+      );
+    }
+  }
 
+  // ── Seed maintenance issues ───────────────────────────────────────────────
   const insertIssue = db.prepare(`
     INSERT INTO maintenance_issues (location_id, room_id, issue_type, title, severity, status)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
-  insertIssue.run(SILVER_SANDS_LOCATION_ID, roomMap["6"],  "plumbing",    "Shower leaking – Room 6",       "high",   "open");
-  insertIssue.run(SILVER_SANDS_LOCATION_ID, roomMap["11"], "electrical",  "Bathroom light flickering – R11","normal", "triaged");
-  insertIssue.run(SILVER_SANDS_LOCATION_ID, roomMap["3"],  "hvac",        "AC unit not cooling – Room 3",  "normal", "open");
+  const roomMap = Object.fromEntries(rooms.map(r => [r.room_number, r.id]));
+
+  insertIssue.run(LOCATION_ID, roomMap["1"],  "plumbing",   "Shower leaking – Room 1",         "high",   "open");
+  insertIssue.run(LOCATION_ID, roomMap["14"], "electrical", "Bathroom light flickering – R14",  "normal", "triaged");
+  insertIssue.run(LOCATION_ID, roomMap["33"], "hvac",       "AC unit not cooling – Room 33",    "normal", "open");
+  insertIssue.run(LOCATION_ID, roomMap["50"], "general",    "Door latch stiff – Room 50",       "low",    "open");
+  insertIssue.run(LOCATION_ID, roomMap["60"], "plumbing",   "Toilet running – Room 60",         "normal", "open");
 }
