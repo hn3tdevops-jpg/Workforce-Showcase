@@ -24,7 +24,17 @@ interface AnyRoom {
   location_id?: string | null;
 }
 
-const STATUS_ORDER = ["dirty", "maintenance", "out_of_order", "inspecting", "clean", "occupied"];
+// Spec-defined room statuses, sorted by operational urgency
+const STATUS_ORDER = [
+  "maintenance_hold",
+  "dirty",
+  "laundry_only",
+  "ready_for_inspection",
+  "dnd",
+  "stayover",
+  "clean",
+  "inspected",
+];
 
 function statusSort(a: AnyRoom, b: AnyRoom) {
   const ia = STATUS_ORDER.indexOf(a.status ?? "");
@@ -63,7 +73,7 @@ export default function Rooms() {
 
   const { data: allRooms = [], isLoading, isError } = useQuery({
     queryKey: ["/rooms", selectedLocationId],
-    queryFn: fetchRoomsMock,
+    queryFn: () => fetchRoomsMock(selectedLocationId ?? undefined),
   });
 
   const rooms = useMemo(() => {

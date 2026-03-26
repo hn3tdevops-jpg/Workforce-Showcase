@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchTasksMock, fetchUsers, assignTask, updateTaskStatus, DEMO_MODE } from "@/lib/mock-adapter";
 import { useLocation } from "@/lib/location-context";
+import { MOCK_ROOMS } from "@/lib/mock-data";
 import type { MockUser } from "@/lib/mock-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -16,18 +17,21 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { CheckSquare, ChevronDown, Clock, User, AlertCircle } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { CheckSquare, ChevronDown, Clock, User, AlertCircle, DoorOpen } from "lucide-react";
+import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
+// Spec-defined task status groups
 const STATUS_GROUPS = [
-  { key: "pending", label: "Pending", color: "text-amber-400 border-amber-500/30 bg-amber-500/5" },
+  { key: "open",        label: "Open",        color: "text-slate-400 border-slate-500/30 bg-slate-500/5" },
+  { key: "assigned",    label: "Assigned",    color: "text-amber-400 border-amber-500/30 bg-amber-500/5" },
   { key: "in_progress", label: "In Progress", color: "text-blue-400 border-blue-500/30 bg-blue-500/5" },
-  { key: "completed", label: "Completed", color: "text-green-400 border-green-500/30 bg-green-500/5" },
-  { key: "cancelled", label: "Cancelled", color: "text-muted-foreground border-border bg-muted/20" },
+  { key: "blocked",     label: "Blocked",     color: "text-red-400 border-red-500/30 bg-red-500/5" },
+  { key: "completed",   label: "Completed",   color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/5" },
+  { key: "cancelled",   label: "Cancelled",   color: "text-muted-foreground border-border bg-muted/20" },
 ] as const;
 
-const TASK_STATUSES = ["pending", "in_progress", "completed", "cancelled"];
+const TASK_STATUSES = ["open", "assigned", "in_progress", "blocked", "completed", "cancelled"];
 
 interface AnyTask {
   id: string;
@@ -36,7 +40,9 @@ interface AnyTask {
   task_type?: string | null;
   priority?: string | null;
   status?: string | null;
+  due_at?: string | null;
   due_date?: string | null;
+  assigned_user_id?: string | null;
   assigned_to?: string | null;
   location_id?: string | null;
   room_id?: string | null;
@@ -45,6 +51,14 @@ interface AnyTask {
 function priorityOrder(p: string | null | undefined) {
   const map: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
   return map[p ?? ""] ?? 99;
+}
+
+function getAssigneeId(task: AnyTask): string | null {
+  return task.assigned_user_id ?? task.assigned_to ?? null;
+}
+
+function getDueAt(task: AnyTask): string | null {
+  return task.due_at ?? task.due_date ?? null;
 }
 
 function TaskRow({
@@ -58,10 +72,13 @@ function TaskRow({
   onAssign: (userId: string | null) => void;
   onStatusChange: (status: string) => void;
 }) {
-  const assignee = users.find((u) => u.id === task.assigned_to);
+  const assigneeId = getAssigneeId(task);
+  const assignee = users.find((u) => u.id === assigneeId);
+  const dueAt = getDueAt(task);
+  const room = task.room_id ? MOCK_ROOMS.find((r) => r.id === task.room_id) : null;
   const isOverdue =
-    task.due_date &&
-    new Date(task.due_date) < new Date() &&
+    dueAt &&
+    new Date(dueAt) < new Date() &&
     task.status !== "completed" &&
     task.status !== "cancelled";
 
@@ -84,10 +101,16 @@ function TaskRow({
           {task.task_type && (
             <span className="font-mono uppercase tracking-wide">{task.task_type}</span>
           )}
-          {task.due_date && (
+          {room && (
+            <span className="flex items-center gap-1 text-muted-foreground/80">
+              <DoorOpen className="w-3 h-3" />
+              {room.name}
+            </span>
+          )}
+          {dueAt && (
             <span className={`flex items-center gap-1 ${isOverdue ? "text-red-400" : ""}`}>
               <Clock className="w-3 h-3" />
-              {format(new Date(task.due_date), "MMM d, h:mm a")}
+              {format(new Date(dueAt), "MMM d, h:mm a")}
             </span>
           )}
         </div>
@@ -97,7 +120,7 @@ function TaskRow({
         {/* Assign */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 max-w-[130px]">
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 max-w-[140px]">
               <User className="w-3 h-3 shrink-0" />
               <span className="truncate">
                 {assignee ? `${assignee.first_name} ${assignee.last_name}` : "Unassigned"}
@@ -131,12 +154,12 @@ function TaskRow({
         {/* Status */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-              <StatusChip status={task.status ?? "pending"} type="task" />
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 pl-2 pr-1.5">
+              <StatusChip status={task.status ?? "open"} type="task" />
               <ChevronDown className="w-3 h-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 border-border/50">
+          <DropdownMenuContent align="end" className="w-44 border-border/50">
             <DropdownMenuLabel className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider">
               Set Status
             </DropdownMenuLabel>
@@ -164,7 +187,7 @@ export default function Tasks() {
 
   const { data: allTasks = [], isLoading: tasksLoading, isError } = useQuery({
     queryKey: ["/tasks", selectedLocationId],
-    queryFn: fetchTasksMock,
+    queryFn: () => fetchTasksMock(selectedLocationId ?? undefined),
   });
 
   const { data: users = [] } = useQuery({
@@ -204,23 +227,31 @@ export default function Tasks() {
     const map: Record<string, AnyTask[]> = {};
     STATUS_GROUPS.forEach((g) => { map[g.key] = []; });
     tasks.forEach((t) => {
-      const s = t.status ?? "pending";
+      const s = t.status ?? "open";
       if (!map[s]) map[s] = [];
       map[s].push(t);
     });
-    // Sort each group by priority
     Object.values(map).forEach((group) =>
       group.sort((a, b) => priorityOrder(a.priority) - priorityOrder(b.priority))
     );
     return map;
   }, [tasks]);
 
+  const activeCount = tasks.filter(
+    (t) => t.status !== "completed" && t.status !== "cancelled"
+  ).length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground">Queue of operational tasks grouped by status.</p>
+          <p className="text-muted-foreground">
+            Operational task queue grouped by status.
+            {activeCount > 0 && (
+              <span className="ml-2 text-xs font-mono text-amber-400">{activeCount} active</span>
+            )}
+          </p>
         </div>
         {DEMO_MODE && (
           <Badge variant="outline" className="border-amber-500/30 text-amber-400 bg-amber-500/5 text-[10px] font-mono">
@@ -239,6 +270,10 @@ export default function Tasks() {
         <div className="space-y-4">
           {STATUS_GROUPS.map((group) => {
             const items = grouped[group.key] ?? [];
+            // Hide empty completed / cancelled groups to reduce noise
+            if (items.length === 0 && (group.key === "completed" || group.key === "cancelled")) {
+              return null;
+            }
             return (
               <Card key={group.key} className="border-border/50 shadow-md bg-card/50 overflow-hidden">
                 <CardHeader className={`border-b border-border/50 pb-3 pt-3 px-4 flex flex-row items-center gap-3 ${group.color} rounded-t-lg`}>

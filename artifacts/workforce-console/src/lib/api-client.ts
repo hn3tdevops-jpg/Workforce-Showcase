@@ -1,6 +1,9 @@
 import type { LoginRequest, SwitchBusinessRequest } from "@workspace/api-client-react/src/generated/api.schemas";
 
-export const API_BASE = "https://hn3t.pythonanywhere.com/api/v1";
+const envBase = import.meta.env.VITE_API_BASE_URL;
+export const API_BASE = envBase
+  ? `${envBase.replace(/\/$/, "")}/api/v1`
+  : "https://hn3t.pythonanywhere.com/api/v1";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -36,7 +39,6 @@ export async function fetchApi<T>(path: string, options: RequestInit = {}): Prom
     }
     
     if (response.status === 401) {
-      // Dispatch custom event so AuthProvider can catch it and logout
       window.dispatchEvent(new Event('auth:unauthorized'));
     }
     

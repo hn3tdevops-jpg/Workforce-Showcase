@@ -15,7 +15,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
-const ROOM_STATUSES = ["clean", "dirty", "occupied", "inspecting", "maintenance", "out_of_order"];
+// Spec-defined room statuses
+const ROOM_STATUSES = [
+  "clean",
+  "dirty",
+  "ready_for_inspection",
+  "inspected",
+  "stayover",
+  "dnd",
+  "laundry_only",
+  "maintenance_hold",
+];
 
 interface Room {
   id: string;
@@ -97,10 +107,10 @@ export function RoomDrawer({ room, open, onClose }: RoomDrawerProps) {
                 {ROOM_STATUSES.map((s) => (
                   <DropdownMenuItem
                     key={s}
-                    className="text-xs cursor-pointer capitalize"
+                    className="text-xs cursor-pointer"
                     onClick={() => mutation.mutate(s)}
                   >
-                    {s.replace(/_/g, " ")}
+                    <StatusChip status={s} type="room" />
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
