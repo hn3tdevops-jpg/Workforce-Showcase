@@ -67,6 +67,10 @@ export default defineConfig({
       deny: ["**/.*"],
     },
     proxy: {
+      "/api/v1/hospitable": {
+        target: "http://localhost:8080",
+        changeOrigin: false,
+      },
       "/api/v1": {
         target: process.env.VITE_API_PROXY_TARGET ?? "https://hn3t.pythonanywhere.com",
         changeOrigin: true,

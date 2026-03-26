@@ -295,3 +295,61 @@ The `/auth/me` endpoint does not include `business_name` in memberships. The con
 
 ### Demo mode
 Set `VITE_DEMO_MODE=true` to bypass all API calls and use Silver Sands mock data. Useful for UI development without a live API.
+
+## Hospitable Module — Local API Server
+
+The Hospitable module (property hierarchy, rooms, HK tasks, maintenance issues, dashboard) is implemented in the local Express API server (`artifacts/api-server`) using a SQLite database seeded with Silver Sands Motel data.
+
+### Architecture
+
+The Vite dev-server proxy splits traffic by path:
+- `/api/v1/hospitable/*` → `http://localhost:8080` (local Express server)
+- `/api/v1/*` → `https://hn3t.pythonanywhere.com` (PythonAnywhere FastAPI)
+
+This means auth, bootstrap, users, etc. still hit the live Python backend, while all property/room/task operations hit the local Node.js backend.
+
+### Source files
+
+- `artifacts/api-server/src/hospitable/db.ts` — SQLite schema init + Silver Sands seed (1 building, 1 floor, 2 sectors, 12 rooms, 9 tasks, 3 maintenance issues)
+- `artifacts/api-server/src/hospitable/router.ts` — all route handlers
+
+### Database
+
+- Path: `artifacts/api-server/hospitable.db` (SQLite, created on first run)
+- Seeded with Silver Sands Motel: Building 1, Floor 1, North Side (rooms 7-12), South Side (rooms 1-6)
+- Seed only runs once (checked by counting buildings)
+
+### Endpoints (all at `/api/v1/hospitable/`)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/locations/:id/property-tree` | Full building → floor → sector hierarchy |
+| POST | `/buildings` | Create a building |
+| POST | `/floors` | Create a floor |
+| POST | `/sectors` | Create a sector |
+| GET | `/locations/:id/room-groups` | List room groups for a location |
+| POST | `/room-groups` | Create a room group |
+| GET | `/rooms?location_id=` | List rooms (filterable by hk status, sector) |
+| POST | `/rooms` | Create a room |
+| GET | `/rooms/:id` | Get a single room |
+| PATCH | `/rooms/:id/status` | Update housekeeping/occupancy/inspection status |
+| POST | `/rooms/bulk-status` | Bulk status update |
+| GET | `/rooms/:id/assets` | List room assets |
+| POST | `/rooms/:id/assets` | Add an asset |
+| GET | `/rooms/:id/supply-pars` | List supply par levels |
+| POST | `/rooms/:id/supply-pars` | Add a supply par |
+| GET | `/tasks?location_id=` | List tasks (filterable by status, room, assignee) |
+| POST | `/tasks` | Create a task |
+| PATCH | `/tasks/:id/status` | Update task status + event log |
+| POST | `/tasks/:id/assign` | Assign task to a user |
+| POST | `/tasks/:id/complete` | Mark task done |
+| GET | `/tasks/:id/events` | Full status event history |
+| GET | `/maintenance-issues?location_id=` | List maintenance issues |
+| POST | `/maintenance-issues` | Report a new issue |
+| PATCH | `/maintenance-issues/:id` | Update issue status/assignee |
+| GET | `/dashboard/room-board-summary?location_id=` | KPI counts per status |
+| GET | `/dashboard/housekeeping-board?location_id=` | Open tasks with room numbers |
+| GET | `/dashboard/maintenance-board?location_id=` | Open issues with room numbers |
+
+### Silver Sands location ID
+The seed data uses `location_id = "loc-ss-001"`. This matches the console's demo mock-adapter location IDs.
