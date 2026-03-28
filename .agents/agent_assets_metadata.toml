@@ -5,4 +5,4 @@ generated = []
 id = "N6UJmjxcDLxpp5SKghdWn"
 uri = "file://copilot-backend-prompt.md"
 type = "text"
-title = "PythonAnywhere Backend — Copilot Prompt"
+title = "PythonAnywhere Backend Guide (corrected — FastAPI + SQLAlchemy)"

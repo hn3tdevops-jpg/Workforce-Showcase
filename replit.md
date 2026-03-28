@@ -269,7 +269,7 @@ The demo should support this flow:
 ## Backend API — Connection & Auth
 
 ### Live API
-The live API is deployed at `https://hn3t.pythonanywhere.com` (Python FastAPI + SQLite via PythonAnywhere).
+The live API is deployed at `https://hn3t.pythonanywhere.com` (FastAPI + SQLAlchemy + SQLite, hosted on PythonAnywhere).
 
 **Auth endpoints:**
 - `POST /api/v1/auth/login` → `{ access_token, token_type, business_id, user: { id, email, is_active } }`
@@ -278,8 +278,20 @@ The live API is deployed at `https://hn3t.pythonanywhere.com` (Python FastAPI + 
 
 **Important:** The API returns a nested response shape (`user.id`, `user.email` etc.) which `auth-context.tsx` maps to the flat `SessionInfo` type the console uses. The mapping is in `mapToSessionInfo()` in `src/lib/auth-context.tsx`.
 
-### Dev proxy (recommended)
-In development, leave `VITE_API_BASE_URL` empty in `.env`. The Vite dev server proxies all `/api/v1/*` requests to `https://hn3t.pythonanywhere.com`, eliminating browser CORS restrictions.
+### Dev proxy split
+The Vite dev server routes traffic based on path — local Express takes priority over the PythonAnywhere proxy for paths it handles:
+
+| Path prefix | Target | Notes |
+|---|---|---|
+| `/api/v1/hospitable/*` | `http://localhost:8080` | Rooms, tasks, maintenance, dashboard |
+| `/api/v1/auth/*` | `http://localhost:8080` | Auth (local SQLite) |
+| `/api/v1/locations/*` | `http://localhost:8080` | Locations (local SQLite) |
+| `/api/v1/users/*` | `http://localhost:8080` | Staff CRUD (local SQLite) |
+| `/api/v1/roles/*` | `http://localhost:8080` | Static role list |
+| `/api/v1/shifts/*` | `http://localhost:8080` | Shifts, swaps, marketplace (local SQLite) |
+| `/api/v1/*` (catch-all) | `https://hn3t.pythonanywhere.com` | Everything else proxied to FastAPI backend |
+
+In dev, leave `VITE_API_BASE_URL` empty — all routing is handled by the Vite proxy config.
 
 ### Direct connection
 Set `VITE_API_BASE_URL=https://hn3t.pythonanywhere.com` in `.env`. Requires the PythonAnywhere server to have CORS configured for the Replit domain via `CORS_ALLOW_ORIGINS` env var.
