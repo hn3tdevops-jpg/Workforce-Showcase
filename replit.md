@@ -15,11 +15,28 @@ This project is a pnpm workspace monorepo (TypeScript + pnpm) for **Silver Sands
 | Users | Live |
 | **Studio** | **Live** — Phases 1–9 complete: chat sessions, structured extraction, derived models (entities/workflows/views/concepts/relationships), validation (10 rules, dismiss), artifact generation (SUMMARY, DESIGN_DOC, SCHEMA_DRAFT, API_SPEC, ROADMAP, COPILOT_PACK — inline view, copy, download) |
 | **Promotions** | **Live** — Phase 11: career ladder (3 tracks × 4 tiers, seeded), promotion criteria per tier, staff progress view, promote/assign tier dialog, recognition feed (6 event types) with give/delete |
-| **Employees** | **Live** — Workforce Identity Package: 5 new DB tables (employee_profiles, user_employee_links, employee_role_assignments, employee_link_invitations, workforce_audit_events), 6 seeded employee profiles (one per staff user), full lifecycle transitions (ACTIVE/ON_LEAVE/SUSPENDED/TERMINATED/ARCHIVED/PENDING_HIRE), link lifecycle (ACTIVE/SUSPENDED/REVOKED/ENDED), scoped RBAC role assignments, audit log, access-context resolver. 4-tab UI: Profiles | User Links | Role Assignments | Audit Log. Routes: /api/v1/workforce/* (local:8080). |
+| **Employees** | **Live** — Workforce Identity Package: 5 new DB tables (employee_profiles, user_employee_links, employee_role_assignments, employee_link_invitations, workforce_audit_events), 6 seeded employee profiles (one per staff user), full lifecycle transitions, link lifecycle, scoped RBAC, audit log, access-context resolver. **5-tab UI**: Profiles | User Links | Role Assignments | Audit Log | **Org Chart** (tree with manager hierarchy + Set Manager). **Send Invite** button in expanded profile → calls `/workforce/employees/:id/invite-link` → shows claim link. Routes: /api/v1/workforce/* (local:8080). |
+| **Inspections** | **Live** — room_inspections DB table; full CRUD + lifecycle (pending→in_progress→passed/failed→approved); 5 sample inspections seeded on demand. 3-tab UI: Pending | Completed | All. Schedule/submit/approve/cancel actions. Routes: /api/v1/inspections/* (local:8080). |
 | Settings | Live (owner-only) |
 | Session Debug | Live |
 
-The system aims to be an internal operations product, focusing on a clean, operational dashboard feel, responsive design for desktop and tablet, and fast, simple workflows. Key capabilities include managing users, roles, permissions, business context, location context, room views, room status, task management (assignment, status updates), and potentially inspections. The project emphasizes reusability of components and clear business and location context throughout the application.
+The system is a full internal workforce operations product. Key capabilities include managing users, roles, permissions, business context, location context, room views, room status, task management, shift scheduling, employee identity/linking, invitation flows, org chart hierarchy, and room quality inspections. The project emphasizes reusability of components and clear business and location context.
+
+### Employment Access Context (T001)
+- After login, `auth-context.tsx` fetches `/api/v1/auth/me/access-context` to populate `employmentScope`
+- Exposes `hasEmployeePermission(p)` and `employmentScope` from `useAuth()`
+- Sidebar footer shows a green employment chip when user has an active employee profile link
+
+### Invitation Claim Flow (T003)
+- `/invite/:token` is a public route (outside auth guard) — accessible without login
+- Shows employee name and a "Connect my account" button
+- Backend: `GET /workforce/invitations/token/:token`, `POST /workforce/invitations/:token/claim`
+
+### Inspections (T005)
+- Backend: `artifacts/api-server/src/inspections/router.ts`
+- DB table: `room_inspections` (in db.ts)
+- Lifecycle: pending → in_progress → passed/failed → approved/cancelled
+- Seeding: POST /api/v1/inspections/seed (idempotent, 5 samples)
 
 # User Preferences
 

@@ -518,6 +518,72 @@ router.get("/audit", (req: Request, res: Response) => {
 
 // ── Invitations ───────────────────────────────────────────────────────────────
 
+/** GET /workforce/invitations/:token — lookup by token */
+router.get("/invitations/token/:token", (req: Request, res: Response) => {
+  const db = getDb();
+  const inv = db.prepare(`
+    SELECT eli.*,
+      ep.legal_first_name || ' ' || ep.legal_last_name AS employee_name,
+      ep.job_title, ep.department, ep.work_email
+    FROM employee_link_invitations eli
+    JOIN employee_profiles ep ON ep.id = eli.employee_profile_id
+    WHERE eli.invite_token = ?
+  `).get(req.params.token) as any;
+  if (!inv) return notFound(res, "Invitation not found");
+  ok(res, inv);
+});
+
+/** POST /workforce/invitations/:token/claim — accept invitation */
+router.post("/invitations/:token/claim", (req: Request, res: Response) => {
+  const db = getDb();
+  const { user_id } = req.body;
+  if (!user_id) return bad(res, "user_id required");
+
+  const inv = db.prepare(`
+    SELECT * FROM employee_link_invitations WHERE invite_token = ?
+  `).get(req.params.token) as any;
+
+  if (!inv) return notFound(res, "Invitation not found");
+  if (inv.status !== "PENDING") return bad(res, `Invitation is ${inv.status} — cannot claim`);
+  if (inv.expires_at && new Date(inv.expires_at) < new Date()) return bad(res, "Invitation has expired");
+
+  // Check no conflicting active link exists
+  const existing = db.prepare(
+    "SELECT id, link_status FROM user_employee_links WHERE user_id = ? AND employee_profile_id = ?"
+  ).get(user_id, inv.employee_profile_id) as any;
+
+  if (existing?.link_status === "ACTIVE") return conflict(res, "An active link already exists");
+
+  // Create the link
+  const linkId = uid();
+  db.prepare(`
+    INSERT OR IGNORE INTO user_employee_links
+      (id, user_id, employee_profile_id, link_status, is_primary, activated_by_user_id, linked_at)
+    VALUES (?, ?, ?, 'ACTIVE', 1, ?, datetime('now'))
+  `).run(linkId, user_id, inv.employee_profile_id, user_id);
+
+  // Mark invitation claimed
+  db.prepare(`
+    UPDATE employee_link_invitations
+    SET status = 'CLAIMED', claimed_at = datetime('now'), claimed_by_user_id = ?, completed_link_id = ?
+    WHERE id = ?
+  `).run(user_id, linkId, inv.id);
+
+  audit(db, "employee_link_invitation.claimed", "employee_link_invitation", inv.id, {
+    actor_user_id: user_id,
+    after: { status: "CLAIMED", link_id: linkId, user_id },
+    related_ep_id: inv.employee_profile_id,
+    related_user_id: user_id,
+  });
+
+  ok(res, {
+    ok: true,
+    link_id: linkId,
+    employee_profile_id: inv.employee_profile_id,
+    user_id,
+  }, 201);
+});
+
 /** GET /workforce/invitations */
 router.get("/invitations", (req: Request, res: Response) => {
   const db = getDb();

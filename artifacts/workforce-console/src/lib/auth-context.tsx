@@ -88,15 +88,44 @@ function mapToSessionInfo(data: ApiMeResponse): SessionInfo {
   };
 }
 
+export interface EmploymentAssignment {
+  id: string;
+  role_name: string;
+  scope_type: string;
+  permissions: string[];
+}
+
+export interface EmploymentScope {
+  employee_profile_id: string;
+  employee_name: string;
+  employee_code: string | null;
+  job_title: string | null;
+  department: string | null;
+  employment_status: string;
+  assignments: EmploymentAssignment[];
+  effective_permissions: string[];
+  is_super_admin: boolean;
+}
+
+interface AccessContextResponse {
+  user_id: string;
+  has_access: boolean;
+  active_scope_count: number;
+  scopes: EmploymentScope[];
+  resolved_at: string;
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   session: SessionInfo | null;
+  employmentScope: EmploymentScope | null;
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => void;
   switchBusiness: (businessId: string) => Promise<void>;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: string) => boolean;
+  hasEmployeePermission: (permission: string) => boolean;
   isOwner: () => boolean;
   isSuperAdmin: () => boolean;
   canSwitchBusiness: boolean;
@@ -106,6 +135,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SessionInfo | null>(null);
+  const [employmentScope, setEmploymentScope] = useState<EmploymentScope | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -126,10 +156,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const data = await fetchApi<ApiMeResponse>("/auth/me");
-      setSession(mapToSessionInfo(data));
+      const info = mapToSessionInfo(data);
+      setSession(info);
+      // Fetch employment scope for this user
+      try {
+        const userId = data.user?.id ?? data.id ?? info.id;
+        if (userId) {
+          const ctx = await fetchApi<AccessContextResponse>("/auth/me/access-context");
+          setEmploymentScope(ctx.scopes?.[0] ?? null);
+        }
+      } catch {
+        setEmploymentScope(null);
+      }
     } catch {
       localStorage.removeItem("workforce_token");
       setSession(null);
+      setEmploymentScope(null);
     } finally {
       setIsLoading(false);
     }
@@ -162,9 +204,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadSession();
   };
 
+  const hasEmployeePermission = (permission: string) => {
+    if (!employmentScope) return false;
+    const perms = employmentScope.effective_permissions ?? [];
+    return perms.includes("*") || perms.includes(permission);
+  };
+
   const logout = () => {
     localStorage.removeItem("workforce_token");
     setSession(null);
+    setEmploymentScope(null);
     queryClient.clear();
     window.location.href = "/login";
   };
@@ -217,11 +266,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!session,
         isLoading,
         session,
+        employmentScope,
         login,
         logout,
         switchBusiness,
         hasPermission,
         hasRole,
+        hasEmployeePermission,
         isOwner,
         isSuperAdmin,
         canSwitchBusiness,

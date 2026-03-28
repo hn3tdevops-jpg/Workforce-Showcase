@@ -51,13 +51,13 @@ export const ALL_MODULES: ModuleDefinition[] = [
   { id: "promotions",   label: "Promotions",      icon: TrendingUp,      path: "/app/promotions",   group: "people" },
   { id: "analytics",    label: "Analytics",       icon: BarChart3,       path: "/app/analytics",    group: "admin",   comingSoon: true },
   { id: "inventory",    label: "Supply Pars",     icon: Package,         path: "/app/inventory",    group: "admin",   comingSoon: true },
-  { id: "inspections",  label: "Inspections",     icon: Building2,       path: "/app/inspections",  group: "admin",   comingSoon: true },
+  { id: "inspections",  label: "Inspections",     icon: Building2,       path: "/app/inspections",  group: "admin" },
   { id: "settings",     label: "Settings",        icon: Settings,        path: "/app/settings",     group: "admin",   requiredRole: "owner" },
 ];
 
 export const DEFAULT_ENABLED_MODULES: ModuleId[] = [
   "dashboard", "rooms", "property-map", "tasks", "assignments",
-  "shifts", "timeline", "users", "employees", "studio", "promotions", "session",
+  "shifts", "timeline", "users", "employees", "studio", "promotions", "inspections", "session",
 ];
 
 export function getModulesByGroup(

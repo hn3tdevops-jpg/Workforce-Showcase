@@ -4,8 +4,9 @@ import { fetchApi as apiFetch } from "@/lib/api-client";
 import {
   IdCard, Link2, ShieldCheck, ClipboardList, Plus, Search,
   RefreshCw, ChevronDown, ChevronUp, AlertCircle, CheckCircle2,
-  XCircle, UserCheck, Loader2, X, Check,
+  XCircle, UserCheck, Loader2, X, Check, Send, GitBranch, Copy,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span class={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600"}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600"}`}>
       {status.replace(/_/g, " ")}
     </span>
   );
@@ -137,11 +138,14 @@ const ACTION_VARIANT: Record<string, string> = {
 
 function ProfilesTab() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [inviteResult, setInviteResult] = useState<Record<string, { token: string; email: string }>>({});
+  const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({});
 
   const { data: profiles = [], isLoading, refetch } = useQuery<EmployeeProfile[]>({
     queryKey: ["workforce-employees", statusFilter, search],
@@ -161,6 +165,19 @@ function ProfilesTab() {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["workforce-employees"] }),
     onSettled: () => setActionLoading(null),
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: ({ id, email }: { id: string; email: string }) =>
+      apiFetch(`/workforce/employees/${id}/invite-link`, {
+        method: "POST",
+        body: JSON.stringify({ target_email: email }),
+      }),
+    onSuccess: (data: { invite_token: string; target_email: string }, vars) => {
+      setInviteResult(r => ({ ...r, [vars.id]: { token: data.invite_token, email: data.target_email } }));
+      toast({ title: "Invitation created", description: `Token: ${data.invite_token.slice(0, 12)}…` });
+    },
+    onError: (e: Error) => toast({ title: "Invite failed", description: e.message, variant: "destructive" }),
   });
 
   const doAction = async (id: string, action: string) => {
@@ -265,12 +282,60 @@ function ProfilesTab() {
                         key={action}
                         disabled={actionLoading === `${ep.id}-${action}`}
                         onClick={() => doAction(ep.id, action)}
-                        class={`px-2.5 py-1 rounded border text-xs font-medium transition-colors disabled:opacity-50 ${ACTION_VARIANT[action] ?? "text-gray-700 border-gray-200 hover:bg-gray-50"}`}
+                        className={`px-2.5 py-1 rounded border text-xs font-medium transition-colors disabled:opacity-50 ${ACTION_VARIANT[action] ?? "text-gray-700 border-gray-200 hover:bg-gray-50"}`}
                       >
                         {actionLoading === `${ep.id}-${action}` ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
                         {ACTION_LABELS[action]}
                       </button>
                     ))}
+                  </div>
+
+                  {/* Invite section */}
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    {inviteResult[ep.id] ? (
+                      <div className="rounded bg-green-50 border border-green-200 px-3 py-2 space-y-1">
+                        <p className="text-xs font-medium text-green-700 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />Invite sent to {inviteResult[ep.id].email}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-[10px] bg-white border border-green-200 rounded px-2 py-0.5 font-mono text-green-800 truncate flex-1">
+                            {window.location.origin}/invite/{inviteResult[ep.id].token}
+                          </code>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/invite/${inviteResult[ep.id].token}`);
+                              toast({ title: "Link copied" });
+                            }}
+                            className="p-1 rounded hover:bg-green-100"
+                            title="Copy link"
+                          >
+                            <Copy className="w-3 h-3 text-green-600" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="email"
+                          placeholder="Email to invite…"
+                          value={inviteEmail[ep.id] ?? ep.work_email ?? ""}
+                          onInput={(e) => setInviteEmail(m => ({ ...m, [ep.id]: (e.target as HTMLInputElement).value }))}
+                          className="flex-1 px-2.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <button
+                          onClick={() => {
+                            const email = inviteEmail[ep.id] ?? ep.work_email ?? "";
+                            if (!email) { toast({ title: "Enter an email address", variant: "destructive" }); return; }
+                            inviteMutation.mutate({ id: ep.id, email });
+                          }}
+                          disabled={inviteMutation.isPending}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded border border-indigo-300 bg-indigo-50 text-indigo-700 text-xs font-medium hover:bg-indigo-100 disabled:opacity-50"
+                        >
+                          {inviteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Send Invite
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -856,13 +921,209 @@ function AccessContextPanel() {
   );
 }
 
+// ── Tab: Org Chart ────────────────────────────────────────────────────────────
+
+interface OrgNode {
+  id: string;
+  name: string;
+  job_title: string | null;
+  department: string | null;
+  employment_status: string;
+  manager_employee_id: string | null;
+  employee_code: string | null;
+  children: OrgNode[];
+}
+
+function buildTree(employees: (EmployeeProfile & { manager_employee_id?: string | null })[]): OrgNode[] {
+  const map = new Map<string, OrgNode>();
+  for (const ep of employees) {
+    map.set(ep.id, {
+      id: ep.id,
+      name: ep.display_name ?? `${ep.legal_first_name} ${ep.legal_last_name}`,
+      job_title: ep.job_title,
+      department: ep.department,
+      employment_status: ep.employment_status,
+      manager_employee_id: (ep as any).manager_employee_id ?? null,
+      employee_code: ep.employee_code,
+      children: [],
+    });
+  }
+  const roots: OrgNode[] = [];
+  for (const node of map.values()) {
+    const mgr = node.manager_employee_id ? map.get(node.manager_employee_id) : null;
+    if (mgr) { mgr.children.push(node); } else { roots.push(node); }
+  }
+  return roots;
+}
+
+function OrgNodeRow({ node, depth }: { node: OrgNode; depth: number }) {
+  const [open, setOpen] = useState(true);
+  const hasChildren = node.children.length > 0;
+  return (
+    <div>
+      <div
+        className="flex items-center gap-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer"
+        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        onClick={() => hasChildren && setOpen(o => !o)}
+      >
+        {depth > 0 && (
+          <div className="flex items-center shrink-0" style={{ marginLeft: "-12px" }}>
+            <span className="text-gray-300 text-xs mr-1">└</span>
+          </div>
+        )}
+        <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-xs shrink-0">
+          {node.name[0]}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-medium text-gray-800">{node.name}</span>
+          {node.job_title && <span className="text-xs text-gray-400 ml-2">{node.job_title}</span>}
+          {node.department && <span className="text-xs text-gray-400 ml-1">· {node.department}</span>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge status={node.employment_status} />
+          {node.employee_code && (
+            <span className="text-[10px] font-mono text-gray-400">{node.employee_code}</span>
+          )}
+          {hasChildren && (
+            <span className="text-[10px] text-gray-400">
+              {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {node.children.length}
+            </span>
+          )}
+        </div>
+      </div>
+      {open && node.children.map(child => (
+        <OrgNodeRow key={child.id} node={child} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
+
+function OrgChartTab() {
+  const [setManagerFor, setSetManagerFor] = useState<string | null>(null);
+  const [managerSearch, setManagerSearch] = useState("");
+  const qc = useQueryClient();
+
+  const { data: rawProfiles = [], isLoading, refetch } = useQuery<EmployeeProfile[]>({
+    queryKey: ["workforce-employees-org"],
+    queryFn: () => apiFetch("/workforce/employees"),
+  });
+
+  const setManagerMut = useMutation({
+    mutationFn: ({ id, manager_employee_id }: { id: string; manager_employee_id: string | null }) =>
+      apiFetch(`/workforce/employees/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ manager_employee_id }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workforce-employees-org"] });
+      setSetManagerFor(null);
+    },
+  });
+
+  const roots = buildTree(rawProfiles as any);
+  const filtered = managerSearch
+    ? rawProfiles.filter(ep =>
+        `${ep.legal_first_name} ${ep.legal_last_name}`.toLowerCase().includes(managerSearch.toLowerCase())
+      )
+    : rawProfiles;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">
+          Manager hierarchy based on employee profile relationships
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-gray-400">
+          <Loader2 className="w-6 h-6 animate-spin mr-2" />Loading…
+        </div>
+      ) : roots.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">No employee profiles found</div>
+      ) : (
+        <div className="border border-gray-200 rounded-lg p-4 bg-white">
+          {roots.map(node => <OrgNodeRow key={node.id} node={node} depth={0} />)}
+        </div>
+      )}
+
+      {/* Set Manager panel */}
+      {setManagerFor && (
+        <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-indigo-800">
+              Set manager for: <span className="font-semibold">
+                {rawProfiles.find(e => e.id === setManagerFor)?.legal_first_name}
+              </span>
+            </p>
+            <button onClick={() => setSetManagerFor(null)} className="text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              placeholder="Search employee…"
+              value={managerSearch}
+              onInput={(e) => setManagerSearch((e.target as HTMLInputElement).value)}
+              className="flex-1 px-2.5 py-1.5 border border-indigo-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            <button
+              onClick={() => setManagerMut.mutate({ id: setManagerFor, manager_employee_id: null })}
+              className="w-full text-left px-3 py-1.5 rounded text-sm text-red-600 hover:bg-red-50"
+            >
+              — Remove manager
+            </button>
+            {filtered.filter(e => e.id !== setManagerFor).map(ep => (
+              <button
+                key={ep.id}
+                onClick={() => setManagerMut.mutate({ id: setManagerFor, manager_employee_id: ep.id })}
+                className="w-full text-left px-3 py-1.5 rounded text-sm text-indigo-800 hover:bg-indigo-100"
+              >
+                {ep.display_name ?? `${ep.legal_first_name} ${ep.legal_last_name}`}
+                {ep.job_title && <span className="text-xs text-indigo-500 ml-1">· {ep.job_title}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Select who to reassign */}
+      {!setManagerFor && rawProfiles.length > 0 && (
+        <div className="text-center">
+          <select
+            onChange={(e) => setSetManagerFor(e.target.value || null)}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 focus:outline-none"
+          >
+            <option value="">Set manager for…</option>
+            {rawProfiles.map(ep => (
+              <option key={ep.id} value={ep.id}>
+                {ep.display_name ?? `${ep.legal_first_name} ${ep.legal_last_name}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: "profiles",   label: "Profiles",        icon: IdCard },
-  { id: "links",      label: "User Links",       icon: Link2 },
-  { id: "roles",      label: "Role Assignments", icon: ShieldCheck },
-  { id: "audit",      label: "Audit Log",        icon: ClipboardList },
+  { id: "profiles",  label: "Profiles",        icon: IdCard },
+  { id: "links",     label: "User Links",       icon: Link2 },
+  { id: "roles",     label: "Role Assignments", icon: ShieldCheck },
+  { id: "audit",     label: "Audit Log",        icon: ClipboardList },
+  { id: "orgchart",  label: "Org Chart",        icon: GitBranch },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -892,7 +1153,7 @@ export default function EmployeesPage() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              class={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === id
                   ? "border-indigo-600 text-indigo-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -916,6 +1177,7 @@ export default function EmployeesPage() {
         {activeTab === "links" && <LinksTab />}
         {activeTab === "roles" && <RoleAssignmentsTab />}
         {activeTab === "audit" && <AuditTab />}
+        {activeTab === "orgchart" && <OrgChartTab />}
       </div>
     </div>
   );

@@ -23,6 +23,8 @@ import Settings from "@/pages/settings";
 import Studio from "@/pages/studio";
 import Promotions from "@/pages/promotions";
 import Employees from "@/pages/employees";
+import Inspections from "@/pages/inspections";
+import InviteClaim from "@/pages/invite";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -58,7 +60,8 @@ function ProtectedRoutes() {
               <Route path="/app/users"        component={() => <PageContent><Users /></PageContent>} />
               <Route path="/app/studio"       component={Studio} />
               <Route path="/app/promotions"  component={() => <PageContent><Promotions /></PageContent>} />
-              <Route path="/app/employees"  component={() => <PageContent><Employees /></PageContent>} />
+              <Route path="/app/employees"    component={() => <PageContent><Employees /></PageContent>} />
+              <Route path="/app/inspections" component={() => <PageContent><Inspections /></PageContent>} />
               <Route path="/app/session"      component={() => <PageContent><SessionDebug /></PageContent>} />
               <Route path="/app/timeline"     component={Timeline} />
               <Route path="/app/property-map" component={PropertyMap} />
@@ -79,6 +82,7 @@ function Router() {
       <Route path="/" component={() => <Redirect to="/app/dashboard" />} />
       <Route path="/login" component={Login} />
       <Route path="/bootstrap" component={Bootstrap} />
+      <Route path="/invite/:token" component={InviteClaim} />
       <Route path="/app/*" component={ProtectedRoutes} />
       <Route component={NotFound} />
     </Switch>

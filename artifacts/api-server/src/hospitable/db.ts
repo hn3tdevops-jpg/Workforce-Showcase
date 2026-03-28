@@ -142,6 +142,7 @@ function initSchema(db: Database.Database): void {
       assigned_user_id    TEXT,
       due_at              TEXT,
       completed_at        TEXT,
+      assignee_ep_id      TEXT REFERENCES employee_profiles(id),
       created_by_user_id  TEXT,
       created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at          TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -214,9 +215,10 @@ function initSchema(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS shift_assignees (
-      shift_id    TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-      user_id     TEXT NOT NULL,
-      assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+      shift_id              TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+      user_id               TEXT NOT NULL,
+      employee_profile_id   TEXT REFERENCES employee_profiles(id),
+      assigned_at           TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (shift_id, user_id)
     );
 
@@ -414,6 +416,33 @@ function initSchema(db: Database.Database): void {
       created_at   TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(project_id, rule_id, subject_id)
     );
+
+    -- ── Room Inspections ────────────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS room_inspections (
+      id                  TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      location_id         TEXT NOT NULL,
+      room_id             INTEGER REFERENCES hk_rooms(id),
+      inspector_ep_id     TEXT REFERENCES employee_profiles(id),
+      inspector_user_id   TEXT,
+      status              TEXT NOT NULL DEFAULT 'pending',
+      overall_score       INTEGER,
+      passed              INTEGER,
+      notes               TEXT,
+      items_json          TEXT NOT NULL DEFAULT '[]',
+      scheduled_for       TEXT,
+      conducted_at        TEXT,
+      approved_by_ep_id   TEXT REFERENCES employee_profiles(id),
+      approved_at         TEXT,
+      business_id         TEXT NOT NULL DEFAULT 'biz-silver-sands',
+      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ri_room     ON room_inspections(room_id);
+    CREATE INDEX IF NOT EXISTS idx_ri_status   ON room_inspections(status);
+    CREATE INDEX IF NOT EXISTS idx_ri_location ON room_inspections(location_id);
+    CREATE INDEX IF NOT EXISTS idx_ri_ep       ON room_inspections(inspector_ep_id);
 
     -- ── Workforce Identity / Employment (Identity Package) ──────────────────
 
@@ -810,6 +839,22 @@ function seedWorkforceIdentity(db: Database.Database): void {
 }
 
 function seedIfEmpty(db: Database.Database): void {
+  // ── Migrations: add new columns to existing tables (idempotent) ──────────
+  const migrations: [string, string][] = [
+    ["hk_tasks",        "ALTER TABLE hk_tasks ADD COLUMN assignee_ep_id TEXT REFERENCES employee_profiles(id)"],
+    ["shift_assignees", "ALTER TABLE shift_assignees ADD COLUMN employee_profile_id TEXT REFERENCES employee_profiles(id)"],
+  ];
+  for (const [table, sql] of migrations) {
+    try {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+      const colNames = cols.map(c => c.name);
+      const colName = sql.match(/ADD COLUMN (\w+)/)?.[1];
+      if (colName && !colNames.includes(colName)) {
+        db.exec(sql);
+      }
+    } catch { /* ignore */ }
+  }
+
   // ── Migration: ensure "studio" is in enabled_modules for all business settings ──
   const settingsRows = db.prepare("SELECT business_id, enabled_modules FROM business_settings").all() as { business_id: string; enabled_modules: string }[];
   for (const row of settingsRows) {

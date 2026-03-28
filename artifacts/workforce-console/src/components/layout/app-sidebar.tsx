@@ -171,7 +171,7 @@ function BusinessSelector() {
 
 export function AppSidebar() {
   const [location] = useWouterLocation();
-  const { session, isSuperAdmin } = useAuth();
+  const { session, isSuperAdmin, employmentScope } = useAuth();
   const { settings, isModuleEnabled } = useBusinessSettings();
   const superAdmin = isSuperAdmin();
 
@@ -228,7 +228,26 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/50 px-4 py-3">
+      <SidebarFooter className="border-t border-border/50 px-4 py-3 gap-2">
+        {employmentScope && (
+          <div className="flex items-center gap-2 px-1 py-1.5 rounded-md bg-emerald-950/40 border border-emerald-800/30">
+            <div className="w-5 h-5 rounded-full bg-emerald-700/40 border border-emerald-600/40 flex items-center justify-center shrink-0">
+              <Shield className="w-2.5 h-2.5 text-emerald-400" />
+            </div>
+            <div className="flex flex-col min-w-0 flex-1">
+              <p className="text-[10px] font-semibold text-emerald-300 truncate leading-none">
+                {employmentScope.employee_name}
+              </p>
+              <p className="text-[9px] text-emerald-500 truncate leading-none mt-0.5">
+                {employmentScope.job_title ?? employmentScope.assignments?.[0]?.role_name ?? "Employee"}
+                {employmentScope.employee_code ? ` · ${employmentScope.employee_code}` : ""}
+              </p>
+            </div>
+            <div className="shrink-0 px-1 py-0.5 rounded text-[8px] font-mono bg-emerald-900/60 text-emerald-400 border border-emerald-800/40 uppercase">
+              {employmentScope.employment_status}
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary uppercase">
             {session?.first_name?.[0] ?? session?.email?.[0] ?? "?"}
