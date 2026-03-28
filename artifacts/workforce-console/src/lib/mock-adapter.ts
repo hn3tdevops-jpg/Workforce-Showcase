@@ -343,6 +343,42 @@ export async function updateTaskStatus(taskId: string, status: string): Promise<
   });
 }
 
+export async function createTask(data: {
+  location_id: string;
+  room_id?: number | null;
+  task_type?: string;
+  title: string;
+  description?: string | null;
+  priority?: string;
+  assigned_user_id?: string | null;
+  due_at?: string | null;
+  created_by_user_id?: string | null;
+}): Promise<NormalizedTask> {
+  if (DEMO_MODE) {
+    const task: NormalizedTask = {
+      id: `task-${Date.now()}`,
+      title: data.title,
+      description: data.description ?? null,
+      task_type: data.task_type ?? "general",
+      priority: data.priority ?? "normal",
+      status: "open",
+      due_at: data.due_at ?? null,
+      assigned_user_id: data.assigned_user_id ?? null,
+      location_id: data.location_id,
+      room_id: data.room_id ? String(data.room_id) : null,
+      room_number: null,
+      _hospitable_id: Date.now(),
+    };
+    (MOCK_TASKS as unknown as NormalizedTask[]).push(task);
+    return task;
+  }
+  const raw = await fetchApi<HospitableTask>("/hospitable/tasks", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return normalizeTask(raw);
+}
+
 // ── Dashboard — hospitable API ────────────────────────────────────────────────
 
 export async function fetchDashboardSummary(locationId: string): Promise<HospitableDashboardSummary> {

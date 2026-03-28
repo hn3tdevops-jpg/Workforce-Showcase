@@ -371,16 +371,20 @@ router.post("/tasks/:taskId/assign", (req: Request, res: Response) => {
   const task = db.prepare("SELECT * FROM hk_tasks WHERE id = ?").get(req.params.taskId) as any;
   if (!task) return notFound(res, "Task not found");
 
-  const { assigned_user_id } = req.body;
-  if (!assigned_user_id) return badRequest(res, "assigned_user_id required");
+  const { assigned_user_id } = req.body as { assigned_user_id?: string | null };
 
-  const newStatus = task.status === "open" ? "assigned" : task.status;
+  // null/undefined = unassign; revert to "open" if currently "assigned"
+  const isUnassign = assigned_user_id == null;
+  const newStatus = isUnassign
+    ? (task.status === "assigned" ? "open" : task.status)
+    : (task.status === "open" ? "assigned" : task.status);
+
   db.prepare("UPDATE hk_tasks SET assigned_user_id = ?, status = ?, updated_at = ? WHERE id = ?")
-    .run(assigned_user_id, newStatus, now(), req.params.taskId);
+    .run(assigned_user_id ?? null, newStatus, now(), req.params.taskId);
 
   if (newStatus !== task.status) {
     db.prepare("INSERT INTO hk_task_events (task_id, old_status, new_status, changed_by_user_id) VALUES (?,?,?,?)")
-      .run(req.params.taskId, task.status, newStatus, assigned_user_id);
+      .run(req.params.taskId, task.status, newStatus, assigned_user_id ?? null);
   }
 
   ok(res, formatTask(db.prepare("SELECT * FROM hk_tasks WHERE id = ?").get(req.params.taskId)));
