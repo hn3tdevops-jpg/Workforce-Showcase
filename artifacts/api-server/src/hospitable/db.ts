@@ -171,6 +171,76 @@ function initSchema(db: Database.Database): void {
       created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS local_locations (
+      id          TEXT PRIMARY KEY,
+      business_id TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      address     TEXT,
+      timezone    TEXT NOT NULL DEFAULT 'America/New_York',
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS local_staff (
+      id          TEXT PRIMARY KEY,
+      email       TEXT NOT NULL UNIQUE,
+      first_name  TEXT NOT NULL,
+      last_name   TEXT NOT NULL,
+      job_title   TEXT,
+      role        TEXT NOT NULL DEFAULT 'staff',
+      phone       TEXT,
+      hire_date   TEXT,
+      is_active   INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS shifts (
+      id          TEXT PRIMARY KEY,
+      location_id TEXT NOT NULL,
+      title       TEXT NOT NULL,
+      role        TEXT NOT NULL DEFAULT 'housekeeping',
+      date        TEXT NOT NULL,
+      start_time  TEXT NOT NULL,
+      end_time    TEXT NOT NULL,
+      capacity    INTEGER NOT NULL DEFAULT 1,
+      status      TEXT NOT NULL DEFAULT 'open',
+      notes       TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS shift_assignees (
+      shift_id    TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+      user_id     TEXT NOT NULL,
+      assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (shift_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS swap_requests (
+      id               TEXT PRIMARY KEY,
+      shift_id         TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+      requester_id     TEXT NOT NULL,
+      target_user_id   TEXT,
+      status           TEXT NOT NULL DEFAULT 'pending',
+      message          TEXT,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      resolved_at      TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS marketplace_listings (
+      id                  TEXT PRIMARY KEY,
+      shift_id            TEXT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+      posted_by_user_id   TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'open',
+      bonus_usd           REAL,
+      note                TEXT,
+      claimed_by_user_id  TEXT,
+      posted_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      claimed_at          TEXT
+    );
   `);
 }
 
@@ -301,6 +371,30 @@ const B2F2: RoomSeed[] = [
 ];
 
 function seedIfEmpty(db: Database.Database): void {
+  // ── Seed locations ────────────────────────────────────────────────────────
+  const locCount = (db.prepare("SELECT COUNT(*) as n FROM local_locations").get() as { n: number }).n;
+  if (locCount === 0) {
+    const ins = db.prepare(
+      "INSERT OR IGNORE INTO local_locations (id, business_id, name, address, timezone) VALUES (?, ?, ?, ?, ?)"
+    );
+    ins.run("loc-001", "biz-silver-sands", "Silver Sands Motel",   "12 Ocean Drive",        "America/New_York");
+    ins.run("loc-002", "biz-silver-sands", "Silver Sands Pool Wing","12 Ocean Drive (West)", "America/New_York");
+  }
+
+  // ── Seed staff ────────────────────────────────────────────────────────────
+  const staffCount = (db.prepare("SELECT COUNT(*) as n FROM local_staff").get() as { n: number }).n;
+  if (staffCount === 0) {
+    const ins = db.prepare(
+      "INSERT OR IGNORE INTO local_staff (id, email, first_name, last_name, job_title, role, phone) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    );
+    ins.run("user-001", "manager@silversands.com",    "Sarah",  "Okonkwo", "General Manager",        "owner",      "+1 555 001 0001");
+    ins.run("user-002", "front.desk@silversands.com", "Marcus", "Yee",     "Front Desk Supervisor",  "supervisor", "+1 555 001 0002");
+    ins.run("user-003", "hk.lead@silversands.com",    "Amara",  "Singh",   "Housekeeping Lead",      "supervisor", "+1 555 001 0003");
+    ins.run("user-004", "hk.01@silversands.com",      "James",  "Boateng", "Housekeeper",            "staff",      null);
+    ins.run("user-005", "hk.02@silversands.com",      "Priya",  "Nair",    "Housekeeper",            "staff",      null);
+    ins.run("user-006", "maintenance@silversands.com","Derek",  "Walsh",   "Maintenance Technician", "staff",      null);
+  }
+
   const existing = db.prepare("SELECT COUNT(*) as count FROM property_buildings").get() as { count: number };
   if (existing.count > 0) return;
 
