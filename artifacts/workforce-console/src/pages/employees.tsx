@@ -149,13 +149,13 @@ function ProfilesTab() {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (search) params.set("search", search);
-      return apiFetch(`/api/v1/workforce/employees?${params}`);
+      return apiFetch(`/workforce/employees?${params}`);
     },
   });
 
   const lifecycleMutation = useMutation({
     mutationFn: ({ id, action, reason }: { id: string; action: string; reason?: string }) =>
-      apiFetch(`/api/v1/workforce/employees/${id}/${action}`, {
+      apiFetch(`/workforce/employees/${id}/${action}`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       }),
@@ -304,7 +304,7 @@ function CreateProfileModal({ onClose, onCreated }: { onClose: () => void; onCre
     if (!form.legal_first_name || !form.legal_last_name) { setErr("First and last name required"); return; }
     setSaving(true); setErr("");
     try {
-      await apiFetch("/api/v1/workforce/employees", {
+      await apiFetch("/workforce/employees", {
         method: "POST",
         body: JSON.stringify(form),
       });
@@ -379,7 +379,7 @@ function LinksTab() {
   // a cross-employee links view via access-context aggregation
   const { data: profiles = [], isLoading } = useQuery<EmployeeProfile[]>({
     queryKey: ["workforce-employees", "", ""],
-    queryFn: () => apiFetch("/api/v1/workforce/employees"),
+    queryFn: () => apiFetch("/workforce/employees"),
   });
 
   // Fetch links for each employee, but lazy
@@ -387,13 +387,13 @@ function LinksTab() {
 
   const { data: links = [], isLoading: linksLoading } = useQuery<UserEmployeeLink[]>({
     queryKey: ["workforce-links", selectedEp],
-    queryFn: () => apiFetch(`/api/v1/workforce/employees/${selectedEp}/links`),
+    queryFn: () => apiFetch(`/workforce/employees/${selectedEp}/links`),
     enabled: !!selectedEp,
   });
 
   const linkActionMutation = useMutation({
     mutationFn: ({ linkId, action, reason }: { linkId: string; action: string; reason?: string }) =>
-      apiFetch(`/api/v1/workforce/links/${linkId}/${action}`, {
+      apiFetch(`/workforce/links/${linkId}/${action}`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       }),
@@ -499,17 +499,17 @@ function RoleAssignmentsTab() {
 
   const { data: profiles = [] } = useQuery<EmployeeProfile[]>({
     queryKey: ["workforce-employees", "", ""],
-    queryFn: () => apiFetch("/api/v1/workforce/employees"),
+    queryFn: () => apiFetch("/workforce/employees"),
   });
 
   const { data: assignments = [], isLoading } = useQuery<RoleAssignment[]>({
     queryKey: ["workforce-role-assignments", selectedEp],
-    queryFn: () => apiFetch(`/api/v1/workforce/employees/${selectedEp}/role-assignments`),
+    queryFn: () => apiFetch(`/workforce/employees/${selectedEp}/role-assignments`),
     enabled: !!selectedEp,
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/api/v1/workforce/role-assignments/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => apiFetch(`/workforce/role-assignments/${id}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["workforce-role-assignments", selectedEp] }),
   });
 
@@ -620,7 +620,7 @@ function AddRoleModal({ epId, epName, onClose, onAdded }: {
         supervisor: ["rooms:write","tasks:write","staff:read","shifts:read","shifts:write"],
         staff:      ["tasks:read","tasks:write:own","shifts:read"],
       };
-      await apiFetch(`/api/v1/workforce/employees/${epId}/role-assignments`, {
+      await apiFetch(`/workforce/employees/${epId}/role-assignments`, {
         method: "POST",
         body: JSON.stringify({ ...form, permissions: PERMS[form.role_name] ?? [] }),
       });
@@ -709,7 +709,7 @@ function AuditTab() {
       const p = new URLSearchParams({ limit: "100" });
       if (filter.event_key) p.set("event_key", filter.event_key);
       if (filter.target_id) p.set("target_id", filter.target_id);
-      return apiFetch(`/api/v1/workforce/audit?${p}`);
+      return apiFetch(`/workforce/audit?${p}`);
     },
   });
 
@@ -781,14 +781,14 @@ function AuditTab() {
 function AccessContextPanel() {
   const { data: profiles = [] } = useQuery<EmployeeProfile[]>({
     queryKey: ["workforce-employees", "", ""],
-    queryFn: () => apiFetch("/api/v1/workforce/employees"),
+    queryFn: () => apiFetch("/workforce/employees"),
   });
 
   const [selectedUserId, setSelectedUserId] = useState("");
 
   const { data: ctx, isLoading, refetch } = useQuery({
     queryKey: ["workforce-access-context", selectedUserId],
-    queryFn: () => apiFetch(`/api/v1/workforce/access-context?user_id=${selectedUserId}`),
+    queryFn: () => apiFetch(`/workforce/access-context?user_id=${selectedUserId}`),
     enabled: !!selectedUserId,
   });
 
