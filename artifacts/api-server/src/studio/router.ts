@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getDb } from "../hospitable/db.js";
 import { deriveModels } from "./modeling.js";
+import { runValidation } from "./validation.js";
 
 const router = Router();
 
@@ -464,6 +465,74 @@ router.patch("/concepts/:id",  (req: Request, res: Response) => {
   if (!status) return badRequest(res, "status required");
   db.prepare("UPDATE studio_concepts SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), req.params.id);
   ok(res, db.prepare("SELECT * FROM studio_concepts WHERE id = ?").get(req.params.id));
+});
+
+// ── Validation (Phase 8) ────────────────────────────────────────────────────
+
+function upsertValidations(projectId: string): void {
+  const db = getDb();
+  const issues = runValidation(db, projectId);
+  const ts = now();
+
+  const upsert = db.prepare(`
+    INSERT INTO studio_validations
+      (id, project_id, rule_id, severity, category, title, detail, subject_id, subject_type, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)
+    ON CONFLICT(project_id, rule_id, subject_id) DO UPDATE SET
+      severity     = excluded.severity,
+      title        = excluded.title,
+      detail       = excluded.detail,
+      subject_type = excluded.subject_type
+  `);
+
+  for (const issue of issues) {
+    upsert.run(
+      uid(), projectId,
+      issue.rule_id, issue.severity, issue.category,
+      issue.title, issue.detail ?? null,
+      issue.subject_id ?? "__none__", issue.subject_type ?? null,
+      ts,
+    );
+  }
+}
+
+// Trigger full validation
+router.post("/projects/:id/validate", (req: Request, res: Response) => {
+  const db = getDb();
+  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(req.params.id);
+  if (!project) return notFound(res);
+
+  upsertValidations(req.params.id);
+
+  const issues = db.prepare(`
+    SELECT * FROM studio_validations
+    WHERE project_id = ? AND status = 'OPEN'
+    ORDER BY CASE severity
+      WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2
+      WHEN 'LOW' THEN 3 ELSE 4 END, created_at DESC
+  `).all(req.params.id);
+
+  ok(res, issues);
+});
+
+// Get current open issues
+router.get("/projects/:id/validations", (req: Request, res: Response) => {
+  const db = getDb();
+  const issues = db.prepare(`
+    SELECT * FROM studio_validations
+    WHERE project_id = ? AND status = 'OPEN'
+    ORDER BY CASE severity
+      WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2
+      WHEN 'LOW' THEN 3 ELSE 4 END, created_at DESC
+  `).all(req.params.id);
+  ok(res, issues);
+});
+
+// Dismiss a single issue
+router.patch("/validations/:id/dismiss", (req: Request, res: Response) => {
+  const db = getDb();
+  db.prepare("UPDATE studio_validations SET status = 'DISMISSED' WHERE id = ?").run(req.params.id);
+  ok(res, { ok: true });
 });
 
 export default router;

@@ -22,6 +22,7 @@ import {
   Archive, Layers, Clock, X, RefreshCw, CheckCircle2, Trash2,
   BookOpen, Zap, AlertTriangle, Settings2, Database, GitBranch,
   Layout, Brain, ArrowRight, ChevronDown, ChevronUp, Cpu,
+  ShieldCheck, XCircle, Info, AlertCircle, EyeOff,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -83,6 +84,20 @@ interface StudioModels {
   relationships: StudioRelationship[];
 }
 
+interface StudioValidation {
+  id:           string;
+  project_id:   string;
+  rule_id:      string;
+  severity:     "INFO" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  category:     string;
+  title:        string;
+  detail?:      string;
+  subject_id?:  string;
+  subject_type?: string;
+  status:       string;
+  created_at:   string;
+}
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 const studioApi = {
@@ -102,6 +117,9 @@ const studioApi = {
   confirmWorkflow: (id: string, status: string) => fetchApi(`/studio/workflows/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   confirmView:     (id: string, status: string) => fetchApi(`/studio/views/${id}`,     { method: "PATCH", body: JSON.stringify({ status }) }),
   confirmConcept:  (id: string, status: string) => fetchApi(`/studio/concepts/${id}`,  { method: "PATCH", body: JSON.stringify({ status }) }),
+  getValidations:  (pid: string) => fetchApi<StudioValidation[]>(`/studio/projects/${pid}/validations`),
+  validate:        (pid: string) => fetchApi<StudioValidation[]>(`/studio/projects/${pid}/validate`, { method: "POST" }),
+  dismissValidation: (vid: string) => fetchApi(`/studio/validations/${vid}/dismiss`, { method: "PATCH" }),
 };
 
 // ── Metadata ──────────────────────────────────────────────────────────────────
@@ -603,10 +621,159 @@ function ModelsPanel({ projectId }: { projectId: string }) {
   );
 }
 
+// ── Validation Panel (Phase 8) ────────────────────────────────────────────────
+
+const SEVERITY_ICON: Record<string, React.ElementType> = {
+  CRITICAL: XCircle,
+  HIGH:     AlertCircle,
+  MEDIUM:   AlertTriangle,
+  LOW:      Info,
+  INFO:     Info,
+};
+
+const SEVERITY_CHIP: Record<string, string> = {
+  CRITICAL: "bg-red-500/10 text-red-400 border-red-500/30",
+  HIGH:     "bg-orange-500/10 text-orange-400 border-orange-500/30",
+  MEDIUM:   "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  LOW:      "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  INFO:     "bg-muted/40 text-muted-foreground border-border/40",
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+  MODEL:       "Model",
+  REQUIREMENT: "Req",
+  QUESTION:    "Question",
+  WORKFLOW:    "Workflow",
+  COVERAGE:    "Coverage",
+};
+
+function ValidationPanel({ projectId }: { projectId: string }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: issues = [], isLoading, refetch } = useQuery({
+    queryKey: ["studio:validations", projectId],
+    queryFn: () => studioApi.getValidations(projectId),
+    refetchInterval: false,
+  });
+
+  const validateMut = useMutation({
+    mutationFn: () => studioApi.validate(projectId),
+    onSuccess: (data) => {
+      qc.setQueryData(["studio:validations", projectId], data);
+      const open = data.filter(i => i.status === "OPEN").length;
+      toast({ title: open === 0 ? "No issues found!" : `${open} issue${open !== 1 ? "s" : ""} found` });
+    },
+    onError: () => toast({ title: "Validation failed", variant: "destructive" }),
+  });
+
+  const dismissMut = useMutation({
+    mutationFn: (vid: string) => studioApi.dismissValidation(vid),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["studio:validations", projectId] }),
+  });
+
+  const critCount = issues.filter(i => i.severity === "CRITICAL").length;
+  const highCount = issues.filter(i => i.severity === "HIGH").length;
+  const medCount  = issues.filter(i => i.severity === "MEDIUM").length;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* run button */}
+      <div className="shrink-0 px-3 pt-2 pb-1.5 space-y-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-7 text-xs gap-1.5 border-dashed border-primary/40 hover:border-primary/70 hover:bg-primary/5"
+          onClick={() => validateMut.mutate()}
+          disabled={validateMut.isPending}
+        >
+          {validateMut.isPending
+            ? <><Loader2 className="w-3 h-3 animate-spin" />Validating…</>
+            : <><ShieldCheck className="w-3 h-3 text-primary" />Run Validation</>
+          }
+        </Button>
+
+        {/* summary chips */}
+        {issues.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap">
+            {critCount > 0 && <span className={cn("text-[9px] px-1.5 py-0.5 rounded border", SEVERITY_CHIP.CRITICAL)}>{critCount} Critical</span>}
+            {highCount > 0 && <span className={cn("text-[9px] px-1.5 py-0.5 rounded border", SEVERITY_CHIP.HIGH)}>{highCount} High</span>}
+            {medCount  > 0 && <span className={cn("text-[9px] px-1.5 py-0.5 rounded border", SEVERITY_CHIP.MEDIUM)}>{medCount} Medium</span>}
+            {(issues.length - critCount - highCount - medCount) > 0 && (
+              <span className={cn("text-[9px] px-1.5 py-0.5 rounded border", SEVERITY_CHIP.LOW)}>
+                {issues.length - critCount - highCount - medCount} Low/Info
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* issue list */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {isLoading && [1,2,3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+
+        {!isLoading && issues.length === 0 && (
+          <div className="py-10 flex flex-col items-center gap-2 text-center">
+            <ShieldCheck className="w-8 h-8 text-emerald-400/50" />
+            <p className="text-xs text-muted-foreground">
+              {validateMut.isSuccess ? "No issues found — model looks good!" : "Click Run Validation to check your project."}
+            </p>
+          </div>
+        )}
+
+        {!isLoading && issues.map(issue => {
+          const Icon = SEVERITY_ICON[issue.severity] ?? Info;
+          return (
+            <div
+              key={issue.id}
+              className={cn(
+                "group p-2.5 rounded-lg border transition-colors",
+                issue.severity === "CRITICAL" ? "border-red-500/30 bg-red-500/5" :
+                issue.severity === "HIGH"     ? "border-orange-500/30 bg-orange-500/5" :
+                issue.severity === "MEDIUM"   ? "border-amber-500/20 bg-amber-500/5" :
+                "border-border/40 bg-muted/10"
+              )}
+            >
+              <div className="flex items-start gap-2">
+                <Icon className={cn("w-3.5 h-3.5 shrink-0 mt-0.5",
+                  issue.severity === "CRITICAL" ? "text-red-400" :
+                  issue.severity === "HIGH"     ? "text-orange-400" :
+                  issue.severity === "MEDIUM"   ? "text-amber-400" : "text-blue-400"
+                )} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                    <span className={cn("text-[9px] px-1 py-0.5 rounded border", SEVERITY_CHIP[issue.severity] ?? SEVERITY_CHIP.INFO)}>
+                      {issue.severity}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground/70 font-mono">
+                      {CATEGORY_LABEL[issue.category] ?? issue.category}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-medium text-foreground leading-tight">{issue.title}</p>
+                  {issue.detail && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{issue.detail}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => dismissMut.mutate(issue.id)}
+                  title="Dismiss this issue"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground shrink-0"
+                >
+                  <EyeOff className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Outputs panel ─────────────────────────────────────────────────────────────
 
 type OutputTab = "notes" | "requirements" | "decisions" | "questions";
-type PanelMode = "captured" | "derived";
+type PanelMode = "captured" | "derived" | "validate";
 
 function OutputsPanel({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
@@ -640,25 +807,23 @@ function OutputsPanel({ projectId }: { projectId: string }) {
   return (
     <div className="flex flex-col h-full border-l border-border/50 bg-card/30 overflow-hidden">
       {/* header with mode toggle */}
-      <div className="shrink-0 px-2 py-2 border-b border-border/50 flex items-center gap-1">
-        <button
-          onClick={() => setMode("captured")}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
-            mode === "captured" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <FileText className="w-3 h-3" />Captured
-        </button>
-        <button
-          onClick={() => setMode("derived")}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
-            mode === "derived" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Cpu className="w-3 h-3" />Derived
-        </button>
+      <div className="shrink-0 px-1.5 py-1.5 border-b border-border/50 flex items-center gap-0.5">
+        {(["captured", "derived", "validate"] as PanelMode[]).map(m => {
+          const Icon = m === "captured" ? FileText : m === "derived" ? Cpu : ShieldCheck;
+          const label = m === "captured" ? "Captured" : m === "derived" ? "Derived" : "Validate";
+          return (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
+                mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="w-3 h-3" />{label}
+            </button>
+          );
+        })}
         {mode === "captured" && (
           <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => refetch()}>
             <RefreshCw className="w-2.5 h-2.5" />
@@ -668,6 +833,9 @@ function OutputsPanel({ projectId }: { projectId: string }) {
 
       {/* Derived Models panel */}
       {mode === "derived" && <ModelsPanel projectId={projectId} />}
+
+      {/* Validation panel */}
+      {mode === "validate" && <ValidationPanel projectId={projectId} />}
 
       {/* Captured tabs — only shown when mode=captured */}
       {mode === "captured" && (

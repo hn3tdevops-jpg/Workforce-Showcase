@@ -400,6 +400,21 @@ function initSchema(db: Database.Database): void {
       UNIQUE(project_id, from_name, to_name, relation)
     );
 
+    CREATE TABLE IF NOT EXISTS studio_validations (
+      id           TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id   TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      rule_id      TEXT NOT NULL,
+      severity     TEXT NOT NULL DEFAULT 'MEDIUM',
+      category     TEXT NOT NULL DEFAULT 'MODEL',
+      title        TEXT NOT NULL,
+      detail       TEXT,
+      subject_id   TEXT,
+      subject_type TEXT,
+      status       TEXT NOT NULL DEFAULT 'OPEN',
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, rule_id, subject_id)
+    );
+
   `);
 }
 
