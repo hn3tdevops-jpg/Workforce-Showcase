@@ -7,6 +7,7 @@ import authRouter from "./auth/router.js";
 import coreRouter from "./core/router.js";
 import schedulingRouter from "./scheduling/router.js";
 import studioRouter from "./studio/router.js";
+import promotionsRouter, { seedPromotionTiers } from "./promotions/router.js";
 import { logger } from "./lib/logger.js";
 
 const PA_BASE = "https://hn3t.pythonanywhere.com";
@@ -42,6 +43,10 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1", coreRouter);
 app.use("/api/v1", schedulingRouter);
 app.use("/api/v1/studio", studioRouter);
+app.use("/api/v1/promotions", promotionsRouter);
+
+// Seed promotion tiers on startup (idempotent)
+seedPromotionTiers();
 
 app.use("/api/v1", async (req: Request, res: Response) => {
   const upstream = `${PA_BASE}/api/v1${req.url}`;

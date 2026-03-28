@@ -415,6 +415,49 @@ function initSchema(db: Database.Database): void {
       UNIQUE(project_id, rule_id, subject_id)
     );
 
+    -- ── Promotions (Phase 11) ───────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS promotion_tiers (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      track_name  TEXT NOT NULL,
+      tier_name   TEXT NOT NULL,
+      tier_level  INTEGER NOT NULL DEFAULT 1,
+      role_type   TEXT,
+      description TEXT,
+      color       TEXT NOT NULL DEFAULT 'blue',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(track_name, tier_level)
+    );
+
+    CREATE TABLE IF NOT EXISTS promotion_criteria (
+      id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      tier_id         TEXT NOT NULL REFERENCES promotion_tiers(id) ON DELETE CASCADE,
+      criterion_type  TEXT NOT NULL DEFAULT 'MANAGER_APPROVAL',
+      target_value    INTEGER NOT NULL DEFAULT 1,
+      label           TEXT NOT NULL,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS staff_promotions (
+      id            TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      staff_id      TEXT NOT NULL,
+      from_tier_id  TEXT REFERENCES promotion_tiers(id),
+      to_tier_id    TEXT NOT NULL REFERENCES promotion_tiers(id),
+      promoted_by   TEXT NOT NULL,
+      notes         TEXT,
+      promoted_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS recognition_events (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      staff_id    TEXT NOT NULL,
+      event_type  TEXT NOT NULL DEFAULT 'KUDOS',
+      title       TEXT NOT NULL,
+      notes       TEXT,
+      given_by    TEXT NOT NULL,
+      event_date  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS studio_artifacts (
       id            TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
       project_id    TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
