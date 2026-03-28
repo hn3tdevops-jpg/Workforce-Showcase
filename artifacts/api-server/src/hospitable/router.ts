@@ -534,7 +534,7 @@ router.get("/assignments/", (req: Request, res: Response) => {
       sa.assigned_at    AS created_at
     FROM shift_assignees sa
     JOIN shifts s ON s.id = sa.shift_id
-    LEFT JOIN local_staff ls ON ls.user_id = sa.user_id
+    LEFT JOIN local_staff ls ON ls.id = sa.user_id
   `;
 
   const params: unknown[] = [];

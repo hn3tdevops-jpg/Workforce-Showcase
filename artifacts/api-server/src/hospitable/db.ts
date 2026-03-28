@@ -339,6 +339,67 @@ function initSchema(db: Database.Database): void {
       resolved_at     TEXT,
       created_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS studio_entities (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id  TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      description TEXT,
+      attributes  TEXT NOT NULL DEFAULT '[]',
+      status      TEXT NOT NULL DEFAULT 'INFERRED',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_workflows (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id  TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      description TEXT,
+      steps       TEXT NOT NULL DEFAULT '[]',
+      status      TEXT NOT NULL DEFAULT 'INFERRED',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_views (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id  TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      view_type   TEXT NOT NULL DEFAULT 'LIST',
+      description TEXT,
+      status      TEXT NOT NULL DEFAULT 'INFERRED',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_concepts (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id  TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      definition  TEXT,
+      status      TEXT NOT NULL DEFAULT 'INFERRED',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_relationships (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id  TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      from_name   TEXT NOT NULL,
+      from_type   TEXT NOT NULL DEFAULT 'ENTITY',
+      to_name     TEXT NOT NULL,
+      to_type     TEXT NOT NULL DEFAULT 'ENTITY',
+      relation    TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'INFERRED',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, from_name, to_name, relation)
+    );
+
   `);
 }
 

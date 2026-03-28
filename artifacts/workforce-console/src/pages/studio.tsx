@@ -20,7 +20,8 @@ import {
   Sparkles, Plus, FolderOpen, MessageSquare, Send, Loader2,
   FileText, CheckSquare, Lightbulb, HelpCircle, ChevronRight,
   Archive, Layers, Clock, X, RefreshCw, CheckCircle2, Trash2,
-  BookOpen, Zap, AlertTriangle, Settings2,
+  BookOpen, Zap, AlertTriangle, Settings2, Database, GitBranch,
+  Layout, Brain, ArrowRight, ChevronDown, ChevronUp, Cpu,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -68,6 +69,20 @@ interface StudioOutputs {
   questions: StudioQuestion[];
 }
 
+interface StudioEntity    { id: string; project_id: string; name: string; description: string; attributes: string; status: string; created_at: string; }
+interface StudioWorkflow  { id: string; project_id: string; name: string; description: string; steps: string;      status: string; created_at: string; }
+interface StudioView      { id: string; project_id: string; name: string; view_type: string; description: string;  status: string; created_at: string; }
+interface StudioConcept   { id: string; project_id: string; name: string; definition: string;                      status: string; created_at: string; }
+interface StudioRelationship { id: string; project_id: string; from_name: string; from_type: string; to_name: string; to_type: string; relation: string; status: string; }
+
+interface StudioModels {
+  entities:      StudioEntity[];
+  workflows:     StudioWorkflow[];
+  views:         StudioView[];
+  concepts:      StudioConcept[];
+  relationships: StudioRelationship[];
+}
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 const studioApi = {
@@ -81,6 +96,12 @@ const studioApi = {
   getOutputs:    (pid: string) => fetchApi<StudioOutputs>(`/studio/projects/${pid}/outputs`),
   resolveQuestion: (qid: string) => fetchApi(`/studio/questions/${qid}/resolve`, { method: "PATCH" }),
   deleteNote:    (nid: string)  => fetchApi(`/studio/notes/${nid}`, { method: "DELETE" }),
+  getModels:     (pid: string) => fetchApi<StudioModels>(`/studio/projects/${pid}/models`),
+  deriveModels:  (pid: string) => fetchApi<StudioModels>(`/studio/projects/${pid}/models/derive`, { method: "POST" }),
+  confirmEntity:   (id: string, status: string) => fetchApi(`/studio/entities/${id}`,  { method: "PATCH", body: JSON.stringify({ status }) }),
+  confirmWorkflow: (id: string, status: string) => fetchApi(`/studio/workflows/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  confirmView:     (id: string, status: string) => fetchApi(`/studio/views/${id}`,     { method: "PATCH", body: JSON.stringify({ status }) }),
+  confirmConcept:  (id: string, status: string) => fetchApi(`/studio/concepts/${id}`,  { method: "PATCH", body: JSON.stringify({ status }) }),
 };
 
 // ── Metadata ──────────────────────────────────────────────────────────────────
@@ -284,51 +305,109 @@ function MessageBubble({ msg }: { msg: StudioMessage }) {
   );
 }
 
-// ── Outputs panel ─────────────────────────────────────────────────────────────
+// ── Status badge ──────────────────────────────────────────────────────────────
 
-type OutputTab = "notes" | "requirements" | "decisions" | "questions";
+function StatusBadge({ status }: { status: string }) {
+  const cfg: Record<string, string> = {
+    CONFIRMED: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    INFERRED:  "bg-muted/40 text-muted-foreground border-border/40",
+    REJECTED:  "bg-red-500/10 text-red-400 border-red-500/30",
+  };
+  return (
+    <span className={cn("inline-block text-[9px] px-1.5 py-0.5 rounded border", cfg[status] ?? cfg.INFERRED)}>
+      {status}
+    </span>
+  );
+}
 
-function OutputsPanel({ projectId }: { projectId: string }) {
+// ── Derived Models Panel ───────────────────────────────────────────────────────
+
+type ModelTab = "entities" | "workflows" | "views" | "concepts" | "relationships";
+
+const VIEW_TYPE_COLORS: Record<string, string> = {
+  DASHBOARD: "text-violet-400 bg-violet-500/10 border-violet-500/30",
+  LIST:      "text-blue-400 bg-blue-500/10 border-blue-500/30",
+  FORM:      "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
+  REPORT:    "text-amber-400 bg-amber-500/10 border-amber-500/30",
+  MOBILE:    "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+  DETAIL:    "text-pink-400 bg-pink-500/10 border-pink-500/30",
+};
+
+const REL_TYPE_COLORS: Record<string, string> = {
+  ENTITY:   "text-blue-400",
+  WORKFLOW: "text-violet-400",
+  VIEW:     "text-cyan-400",
+  CONCEPT:  "text-amber-400",
+};
+
+function ModelsPanel({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [tab, setTab] = useState<OutputTab>("notes");
+  const [tab, setTab] = useState<ModelTab>("entities");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data: outputs, isLoading, refetch } = useQuery({
-    queryKey: ["studio:outputs", projectId],
-    queryFn: () => studioApi.getOutputs(projectId),
-    refetchInterval: 5000,
+  const { data: models, isLoading, refetch } = useQuery({
+    queryKey: ["studio:models", projectId],
+    queryFn: () => studioApi.getModels(projectId),
+    refetchInterval: 10000,
   });
 
-  const resolveQ = useMutation({
-    mutationFn: (qid: string) => studioApi.resolveQuestion(qid),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["studio:outputs", projectId] }); toast({ title: "Question resolved" }); },
+  const deriveMut = useMutation({
+    mutationFn: () => studioApi.deriveModels(projectId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["studio:models", projectId] });
+      toast({ title: "Models derived from conversation" });
+    },
+    onError: () => toast({ title: "Derivation failed", variant: "destructive" }),
   });
 
-  const deleteNote = useMutation({
-    mutationFn: (nid: string) => studioApi.deleteNote(nid),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["studio:outputs", projectId] }); },
+  const confirmMut = useMutation({
+    mutationFn: ({ type, id, status }: { type: string; id: string; status: string }) => {
+      if (type === "entity")   return studioApi.confirmEntity(id, status);
+      if (type === "workflow") return studioApi.confirmWorkflow(id, status);
+      if (type === "view")     return studioApi.confirmView(id, status);
+      return studioApi.confirmConcept(id, status);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["studio:models", projectId] }),
   });
 
-  const tabs: { id: OutputTab; label: string; icon: React.ElementType; count?: number }[] = [
-    { id: "notes",        label: "Notes",        icon: FileText,    count: outputs?.notes.length },
-    { id: "requirements", label: "Reqs",         icon: CheckSquare, count: outputs?.requirements.length },
-    { id: "decisions",    label: "Decisions",    icon: Lightbulb,   count: outputs?.decisions.length },
-    { id: "questions",    label: "Questions",    icon: HelpCircle,  count: outputs?.questions.length },
+  const modelTabs: { id: ModelTab; label: string; icon: React.ElementType; count?: number }[] = [
+    { id: "entities",      label: "Entities",   icon: Database,   count: models?.entities.length },
+    { id: "workflows",     label: "Flows",      icon: GitBranch,  count: models?.workflows.length },
+    { id: "views",         label: "Views",      icon: Layout,     count: models?.views.length },
+    { id: "concepts",      label: "Concepts",   icon: Brain,      count: models?.concepts.length },
+    { id: "relationships", label: "Links",      icon: ArrowRight, count: models?.relationships.length },
   ];
 
+  const totalModels = (models?.entities.length ?? 0) + (models?.workflows.length ?? 0) +
+    (models?.views.length ?? 0) + (models?.concepts.length ?? 0);
+
   return (
-    <div className="flex flex-col h-full border-l border-border/50 bg-card/30 overflow-hidden">
-      {/* header */}
-      <div className="shrink-0 px-3 py-2.5 border-b border-border/50 flex items-center justify-between">
-        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Extracted Outputs</p>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => refetch()}>
-          <RefreshCw className="w-3 h-3" />
+    <div className="flex flex-col h-full">
+      {/* derive button */}
+      <div className="shrink-0 px-3 pt-2 pb-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-7 text-xs gap-1.5 border-dashed border-primary/40 hover:border-primary/70 hover:bg-primary/5"
+          onClick={() => deriveMut.mutate()}
+          disabled={deriveMut.isPending}
+        >
+          {deriveMut.isPending
+            ? <><Loader2 className="w-3 h-3 animate-spin" />Deriving…</>
+            : <><Cpu className="w-3 h-3 text-primary" />Derive from Conversation</>
+          }
         </Button>
+        {totalModels === 0 && !isLoading && (
+          <p className="text-[9px] text-muted-foreground text-center mt-1.5">
+            Send messages then click Derive to extract entities, workflows, and views.
+          </p>
+        )}
       </div>
 
       {/* tabs */}
       <div className="shrink-0 flex border-b border-border/50">
-        {tabs.map(t => (
+        {modelTabs.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -352,11 +431,275 @@ function OutputsPanel({ projectId }: { projectId: string }) {
 
       {/* content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {isLoading && (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
-          </div>
+        {isLoading && [1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+
+        {/* Entities */}
+        {!isLoading && tab === "entities" && (
+          (models?.entities.length ?? 0) === 0
+            ? <EmptyOutput label="No entities derived yet. Send messages then click Derive." />
+            : models!.entities.map(e => {
+              const attrs: string[] = (() => { try { return JSON.parse(e.attributes); } catch { return []; } })();
+              const expanded = expandedId === e.id;
+              return (
+                <div key={e.id} className="rounded-lg border border-border/40 bg-muted/10 overflow-hidden">
+                  <div className="p-2.5">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Database className="w-3 h-3 text-blue-400 shrink-0" />
+                        <span className="text-xs font-semibold text-blue-300">{e.name}</span>
+                      </div>
+                      <StatusBadge status={e.status} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{e.description}</p>
+                    {attrs.length > 0 && (
+                      <button
+                        onClick={() => setExpandedId(expanded ? null : e.id)}
+                        className="flex items-center gap-1 mt-1.5 text-[9px] text-muted-foreground/70 hover:text-muted-foreground"
+                      >
+                        {expanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                        {attrs.length} attribute{attrs.length !== 1 ? "s" : ""}
+                      </button>
+                    )}
+                    {expanded && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {attrs.map(a => (
+                          <span key={a} className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300 font-mono">{a}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {e.status === "INFERRED" && (
+                    <div className="px-2.5 pb-2 flex gap-1">
+                      <button onClick={() => confirmMut.mutate({ type: "entity", id: e.id, status: "CONFIRMED" })} className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20">✓ Confirm</button>
+                      <button onClick={() => confirmMut.mutate({ type: "entity", id: e.id, status: "REJECTED"  })} className="text-[9px] px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20">✗ Reject</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
         )}
+
+        {/* Workflows */}
+        {!isLoading && tab === "workflows" && (
+          (models?.workflows.length ?? 0) === 0
+            ? <EmptyOutput label="No workflows derived yet. Describe processes in chat then click Derive." />
+            : models!.workflows.map(w => {
+              const steps: string[] = (() => { try { return JSON.parse(w.steps); } catch { return []; } })();
+              const expanded = expandedId === w.id;
+              return (
+                <div key={w.id} className="rounded-lg border border-border/40 bg-muted/10 overflow-hidden">
+                  <div className="p-2.5">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <GitBranch className="w-3 h-3 text-violet-400 shrink-0" />
+                        <span className="text-xs font-semibold text-violet-300">{w.name}</span>
+                      </div>
+                      <StatusBadge status={w.status} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{w.description}</p>
+                    {steps.length > 0 && (
+                      <button
+                        onClick={() => setExpandedId(expanded ? null : w.id)}
+                        className="flex items-center gap-1 mt-1.5 text-[9px] text-muted-foreground/70 hover:text-muted-foreground"
+                      >
+                        {expanded ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+                        {steps.length} step{steps.length !== 1 ? "s" : ""}
+                      </button>
+                    )}
+                    {expanded && (
+                      <ol className="mt-1.5 space-y-1">
+                        {steps.map((s, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[10px] text-foreground/80">
+                            <span className="shrink-0 text-[9px] font-bold text-violet-400 mt-px">{i + 1}.</span>
+                            {s}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                  {w.status === "INFERRED" && (
+                    <div className="px-2.5 pb-2 flex gap-1">
+                      <button onClick={() => confirmMut.mutate({ type: "workflow", id: w.id, status: "CONFIRMED" })} className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20">✓ Confirm</button>
+                      <button onClick={() => confirmMut.mutate({ type: "workflow", id: w.id, status: "REJECTED"  })} className="text-[9px] px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20">✗ Reject</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+        )}
+
+        {/* Views */}
+        {!isLoading && tab === "views" && (
+          (models?.views.length ?? 0) === 0
+            ? <EmptyOutput label="No UI views derived yet. Describe screens or pages in chat then click Derive." />
+            : models!.views.map(v => (
+              <div key={v.id} className="p-2.5 rounded-lg border border-border/40 bg-muted/10">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Layout className="w-3 h-3 text-cyan-400 shrink-0" />
+                    <span className="text-xs font-semibold text-cyan-300">{v.name}</span>
+                  </div>
+                  <StatusBadge status={v.status} />
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed mb-1.5">{v.description}</p>
+                <span className={cn("text-[9px] px-1.5 py-0.5 rounded border font-mono", VIEW_TYPE_COLORS[v.view_type] ?? VIEW_TYPE_COLORS.LIST)}>{v.view_type}</span>
+                {v.status === "INFERRED" && (
+                  <div className="flex gap-1 mt-1.5">
+                    <button onClick={() => confirmMut.mutate({ type: "view", id: v.id, status: "CONFIRMED" })} className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20">✓ Confirm</button>
+                    <button onClick={() => confirmMut.mutate({ type: "view", id: v.id, status: "REJECTED"  })} className="text-[9px] px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20">✗ Reject</button>
+                  </div>
+                )}
+              </div>
+            ))
+        )}
+
+        {/* Concepts */}
+        {!isLoading && tab === "concepts" && (
+          (models?.concepts.length ?? 0) === 0
+            ? <EmptyOutput label="No concepts derived yet. Use domain-specific language in chat then click Derive." />
+            : models!.concepts.map(c => (
+              <div key={c.id} className="p-2.5 rounded-lg border border-border/40 bg-muted/10">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Brain className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span className="text-xs font-semibold text-amber-300">{c.name}</span>
+                  </div>
+                  <StatusBadge status={c.status} />
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">{c.definition}</p>
+                {c.status === "INFERRED" && (
+                  <div className="flex gap-1 mt-1.5">
+                    <button onClick={() => confirmMut.mutate({ type: "concept", id: c.id, status: "CONFIRMED" })} className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20">✓ Confirm</button>
+                    <button onClick={() => confirmMut.mutate({ type: "concept", id: c.id, status: "REJECTED"  })} className="text-[9px] px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20">✗ Reject</button>
+                  </div>
+                )}
+              </div>
+            ))
+        )}
+
+        {/* Relationships */}
+        {!isLoading && tab === "relationships" && (
+          (models?.relationships.length ?? 0) === 0
+            ? <EmptyOutput label="Relationships appear automatically after entities and workflows are derived." />
+            : models!.relationships.map(r => (
+              <div key={r.id} className="p-2 rounded-lg border border-border/40 bg-muted/10">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={cn("text-[10px] font-semibold", REL_TYPE_COLORS[r.from_type] ?? "text-foreground")}>{r.from_name}</span>
+                  <ArrowRight className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/40 border border-border/40 text-muted-foreground font-mono">{r.relation}</span>
+                  <ArrowRight className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
+                  <span className={cn("text-[10px] font-semibold", REL_TYPE_COLORS[r.to_type] ?? "text-foreground")}>{r.to_name}</span>
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <span className={cn("text-[9px] font-mono", REL_TYPE_COLORS[r.from_type])}>{r.from_type}</span>
+                  <span className="text-[9px] text-muted-foreground">→</span>
+                  <span className={cn("text-[9px] font-mono", REL_TYPE_COLORS[r.to_type])}>{r.to_type}</span>
+                </div>
+              </div>
+            ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Outputs panel ─────────────────────────────────────────────────────────────
+
+type OutputTab = "notes" | "requirements" | "decisions" | "questions";
+type PanelMode = "captured" | "derived";
+
+function OutputsPanel({ projectId }: { projectId: string }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [tab, setTab] = useState<OutputTab>("notes");
+  const [mode, setMode] = useState<PanelMode>("captured");
+
+  const { data: outputs, isLoading, refetch } = useQuery({
+    queryKey: ["studio:outputs", projectId],
+    queryFn: () => studioApi.getOutputs(projectId),
+    refetchInterval: 5000,
+  });
+
+  const resolveQ = useMutation({
+    mutationFn: (qid: string) => studioApi.resolveQuestion(qid),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["studio:outputs", projectId] }); toast({ title: "Question resolved" }); },
+  });
+
+  const deleteNote = useMutation({
+    mutationFn: (nid: string) => studioApi.deleteNote(nid),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["studio:outputs", projectId] }); },
+  });
+
+  const tabs: { id: OutputTab; label: string; icon: React.ElementType; count?: number }[] = [
+    { id: "notes",        label: "Notes",     icon: FileText,    count: outputs?.notes.length },
+    { id: "requirements", label: "Reqs",      icon: CheckSquare, count: outputs?.requirements.length },
+    { id: "decisions",    label: "Decisions", icon: Lightbulb,   count: outputs?.decisions.length },
+    { id: "questions",    label: "Questions", icon: HelpCircle,  count: outputs?.questions.length },
+  ];
+
+  return (
+    <div className="flex flex-col h-full border-l border-border/50 bg-card/30 overflow-hidden">
+      {/* header with mode toggle */}
+      <div className="shrink-0 px-2 py-2 border-b border-border/50 flex items-center gap-1">
+        <button
+          onClick={() => setMode("captured")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
+            mode === "captured" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <FileText className="w-3 h-3" />Captured
+        </button>
+        <button
+          onClick={() => setMode("derived")}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
+            mode === "derived" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Cpu className="w-3 h-3" />Derived
+        </button>
+        {mode === "captured" && (
+          <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => refetch()}>
+            <RefreshCw className="w-2.5 h-2.5" />
+          </Button>
+        )}
+      </div>
+
+      {/* Derived Models panel */}
+      {mode === "derived" && <ModelsPanel projectId={projectId} />}
+
+      {/* Captured tabs — only shown when mode=captured */}
+      {mode === "captured" && (
+        <>
+          <div className="shrink-0 flex border-b border-border/50">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "flex-1 flex flex-col items-center gap-0.5 py-2 text-[9px] font-medium transition-colors border-b-2",
+                  tab === t.id
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <t.icon className="w-3.5 h-3.5" />
+                <span>{t.label}</span>
+                {(t.count ?? 0) > 0 && (
+                  <span className="bg-primary/20 text-primary rounded-full px-1 min-w-[14px] text-center leading-none py-0.5">
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {isLoading && (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+              </div>
+            )}
 
         {/* Notes */}
         {!isLoading && tab === "notes" && (
@@ -448,7 +791,9 @@ function OutputsPanel({ projectId }: { projectId: string }) {
               </div>
             ))
         )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -481,6 +826,7 @@ function ChatPanel({ session }: { session: StudioSession }) {
       qc.invalidateQueries({ queryKey: ["studio:session", session.id] });
       qc.invalidateQueries({ queryKey: ["studio:sessions", session.project_id] });
       qc.invalidateQueries({ queryKey: ["studio:outputs", session.project_id] });
+      qc.invalidateQueries({ queryKey: ["studio:models",  session.project_id] });
       qc.invalidateQueries({ queryKey: ["studio:projects"] });
 
       const extracted = data.extracted;

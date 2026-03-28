@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { getDb } from "../hospitable/db.js";
+import { deriveModels } from "./modeling.js";
 
 const router = Router();
 
@@ -260,6 +261,11 @@ router.post("/sessions/:id/messages", (req: Request, res: Response) => {
     }
   }
 
+  // run model derivation after extraction (async-ish — runs synchronously but fast)
+  if ((role ?? "USER") === "USER") {
+    runModelDerivation(session.project_id);
+  }
+
   ok(res, { message, extracted }, 201);
 });
 
@@ -315,6 +321,149 @@ router.get("/projects/:id/outputs", (req: Request, res: Response) => {
     decisions:    db.prepare("SELECT * FROM studio_decisions    WHERE project_id = ? ORDER BY created_at DESC").all(req.params.id),
     questions:    db.prepare("SELECT * FROM studio_open_questions WHERE project_id = ? AND resolved_at IS NULL ORDER BY severity DESC, created_at DESC").all(req.params.id),
   });
+});
+
+// ── Modeling (Phase 7) ─────────────────────────────────────────────────────────
+
+function runModelDerivation(projectId: string): void {
+  const db = getDb();
+
+  // Load all messages for the project
+  const messages = db.prepare(`
+    SELECT m.content, m.role FROM studio_messages m
+    JOIN studio_sessions s ON s.id = m.session_id
+    WHERE s.project_id = ?
+    ORDER BY m.created_at ASC
+  `).all(projectId) as Array<{ content: string; role: string }>;
+
+  const result = deriveModels(messages);
+  const ts = now();
+
+  // Upsert entities
+  const upsertEntity = db.prepare(`
+    INSERT INTO studio_entities (id, project_id, name, description, attributes, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'INFERRED', ?, ?)
+    ON CONFLICT(project_id, name) DO UPDATE SET
+      description = excluded.description,
+      attributes  = excluded.attributes,
+      updated_at  = excluded.updated_at
+  `);
+  for (const e of result.entities) {
+    upsertEntity.run(uid(), projectId, e.name, e.description, e.attributes, ts, ts);
+  }
+
+  // Upsert workflows
+  const upsertWorkflow = db.prepare(`
+    INSERT INTO studio_workflows (id, project_id, name, description, steps, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'INFERRED', ?, ?)
+    ON CONFLICT(project_id, name) DO UPDATE SET
+      description = excluded.description,
+      steps       = excluded.steps,
+      updated_at  = excluded.updated_at
+  `);
+  for (const w of result.workflows) {
+    upsertWorkflow.run(uid(), projectId, w.name, w.description, w.steps, ts, ts);
+  }
+
+  // Upsert views
+  const upsertView = db.prepare(`
+    INSERT INTO studio_views (id, project_id, name, view_type, description, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'INFERRED', ?, ?)
+    ON CONFLICT(project_id, name) DO UPDATE SET
+      view_type   = excluded.view_type,
+      description = excluded.description,
+      updated_at  = excluded.updated_at
+  `);
+  for (const v of result.views) {
+    upsertView.run(uid(), projectId, v.name, v.view_type, v.description, ts, ts);
+  }
+
+  // Upsert concepts
+  const upsertConcept = db.prepare(`
+    INSERT INTO studio_concepts (id, project_id, name, definition, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, 'INFERRED', ?, ?)
+    ON CONFLICT(project_id, name) DO UPDATE SET
+      definition = excluded.definition,
+      updated_at = excluded.updated_at
+  `);
+  for (const c of result.concepts) {
+    upsertConcept.run(uid(), projectId, c.name, c.definition, ts, ts);
+  }
+
+  // Upsert relationships
+  const upsertRel = db.prepare(`
+    INSERT INTO studio_relationships (id, project_id, from_name, from_type, to_name, to_type, relation, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'INFERRED', ?)
+    ON CONFLICT(project_id, from_name, to_name, relation) DO NOTHING
+  `);
+  for (const r of result.relationships) {
+    upsertRel.run(uid(), projectId, r.from_name, r.from_type, r.to_name, r.to_type, r.relation, ts);
+  }
+}
+
+// Manual derive trigger
+router.post("/projects/:id/models/derive", (req: Request, res: Response) => {
+  const db = getDb();
+  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(req.params.id);
+  if (!project) return notFound(res);
+
+  runModelDerivation(req.params.id);
+
+  ok(res, {
+    entities:      db.prepare("SELECT * FROM studio_entities      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    workflows:     db.prepare("SELECT * FROM studio_workflows     WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    views:         db.prepare("SELECT * FROM studio_views         WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    concepts:      db.prepare("SELECT * FROM studio_concepts      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    relationships: db.prepare("SELECT * FROM studio_relationships WHERE project_id = ? ORDER BY from_name ASC").all(req.params.id),
+  });
+});
+
+// Read endpoints
+router.get("/projects/:id/models", (req: Request, res: Response) => {
+  const db = getDb();
+  ok(res, {
+    entities:      db.prepare("SELECT * FROM studio_entities      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    workflows:     db.prepare("SELECT * FROM studio_workflows     WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    views:         db.prepare("SELECT * FROM studio_views         WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    concepts:      db.prepare("SELECT * FROM studio_concepts      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
+    relationships: db.prepare("SELECT * FROM studio_relationships WHERE project_id = ? ORDER BY from_name ASC").all(req.params.id),
+  });
+});
+
+router.get("/projects/:id/entities",      (req: Request, res: Response) => ok(res, getDb().prepare("SELECT * FROM studio_entities      WHERE project_id = ? ORDER BY name ASC").all(req.params.id)));
+router.get("/projects/:id/workflows",     (req: Request, res: Response) => ok(res, getDb().prepare("SELECT * FROM studio_workflows     WHERE project_id = ? ORDER BY name ASC").all(req.params.id)));
+router.get("/projects/:id/views",         (req: Request, res: Response) => ok(res, getDb().prepare("SELECT * FROM studio_views         WHERE project_id = ? ORDER BY name ASC").all(req.params.id)));
+router.get("/projects/:id/concepts",      (req: Request, res: Response) => ok(res, getDb().prepare("SELECT * FROM studio_concepts      WHERE project_id = ? ORDER BY name ASC").all(req.params.id)));
+router.get("/projects/:id/relationships", (req: Request, res: Response) => ok(res, getDb().prepare("SELECT * FROM studio_relationships WHERE project_id = ? ORDER BY from_name ASC").all(req.params.id)));
+
+// PATCH entity/workflow/view/concept status (INFERRED → CONFIRMED / REJECTED)
+router.patch("/entities/:id",  (req: Request, res: Response) => {
+  const db = getDb();
+  const { status } = req.body;
+  if (!status) return badRequest(res, "status required");
+  db.prepare("UPDATE studio_entities SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), req.params.id);
+  ok(res, db.prepare("SELECT * FROM studio_entities WHERE id = ?").get(req.params.id));
+});
+router.patch("/workflows/:id", (req: Request, res: Response) => {
+  const db = getDb();
+  const { status } = req.body;
+  if (!status) return badRequest(res, "status required");
+  db.prepare("UPDATE studio_workflows SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), req.params.id);
+  ok(res, db.prepare("SELECT * FROM studio_workflows WHERE id = ?").get(req.params.id));
+});
+router.patch("/views/:id",     (req: Request, res: Response) => {
+  const db = getDb();
+  const { status } = req.body;
+  if (!status) return badRequest(res, "status required");
+  db.prepare("UPDATE studio_views SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), req.params.id);
+  ok(res, db.prepare("SELECT * FROM studio_views WHERE id = ?").get(req.params.id));
+});
+router.patch("/concepts/:id",  (req: Request, res: Response) => {
+  const db = getDb();
+  const { status } = req.body;
+  if (!status) return badRequest(res, "status required");
+  db.prepare("UPDATE studio_concepts SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), req.params.id);
+  ok(res, db.prepare("SELECT * FROM studio_concepts WHERE id = ?").get(req.params.id));
 });
 
 export default router;
