@@ -1,6 +1,7 @@
-import { Building, LogOut, ChevronDown, User, ShieldCheck, ExternalLink, MapPin, Users } from "lucide-react";
+import { Building, LogOut, ChevronDown, User, ExternalLink, MapPin, Users, Settings, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "@/lib/location-context";
+import { useBusinessSettings } from "@/lib/business-settings-context";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -82,12 +83,16 @@ function LocationSelector() {
 }
 
 export function TopNav() {
-  const { session, logout, switchBusiness, hasRole } = useAuth();
+  const { session, logout, switchBusiness, isOwner, isSuperAdmin } = useAuth();
+  const { settings } = useBusinessSettings();
 
   const activeBusiness = session?.memberships.find(
     (m) => m.business_id === session.active_business_id
   );
+  const businessDisplayName =
+    settings?.display_name || activeBusiness?.business_name || activeBusiness?.business_id;
   const canSwitch = (session?.memberships?.length ?? 0) > 1;
+  const canAccessSettings = isOwner() || isSuperAdmin();
   const initials = [session?.first_name?.[0], session?.last_name?.[0]]
     .filter(Boolean)
     .join("")
@@ -100,7 +105,7 @@ export function TopNav() {
         <div className="h-4 w-px bg-border/50 hidden md:block" />
         <div className="hidden md:flex items-center gap-2 text-sm">
           <Building className="w-3.5 h-3.5 text-primary shrink-0" />
-          <span className="font-semibold">{activeBusiness?.business_name ?? "—"}</span>
+          <span className="font-semibold">{businessDisplayName ?? "—"}</span>
         </div>
         <EnvBadge />
       </div>
@@ -200,11 +205,19 @@ export function TopNav() {
               </a>
             </DropdownMenuItem>
 
-            {hasRole("admin") && (
+            {canAccessSettings && (
               <DropdownMenuItem className="gap-2 cursor-pointer text-sm" asChild>
-                <a href="/app/admin/settings">
-                  <ShieldCheck className="w-3.5 h-3.5 opacity-60" />
-                  Admin Settings
+                <a href="/app/settings">
+                  <Settings className="w-3.5 h-3.5 opacity-60" />
+                  Settings
+                </a>
+              </DropdownMenuItem>
+            )}
+            {isSuperAdmin() && (
+              <DropdownMenuItem className="gap-2 cursor-pointer text-sm text-amber-400 focus:text-amber-400 focus:bg-amber-500/10" asChild>
+                <a href="/app/settings?tab=superadmin">
+                  <Shield className="w-3.5 h-3.5 opacity-60" />
+                  Superadmin
                 </a>
               </DropdownMenuItem>
             )}

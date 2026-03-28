@@ -241,6 +241,26 @@ function initSchema(db: Database.Database): void {
       posted_at           TEXT NOT NULL DEFAULT (datetime('now')),
       claimed_at          TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS business_settings (
+      business_id     TEXT PRIMARY KEY,
+      display_name    TEXT,
+      logo_url        TEXT,
+      primary_color   TEXT NOT NULL DEFAULT '#6366f1',
+      accent_color    TEXT NOT NULL DEFAULT '#14b8a6',
+      enabled_modules TEXT NOT NULL DEFAULT '["dashboard","rooms","property-map","tasks","assignments","shifts","timeline","users","session"]',
+      custom_labels   TEXT NOT NULL DEFAULT '{}',
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id              TEXT PRIMARY KEY,
+      theme                TEXT NOT NULL DEFAULT 'dark',
+      default_location_id  TEXT,
+      sidebar_compact      INTEGER NOT NULL DEFAULT 0,
+      density              TEXT NOT NULL DEFAULT 'comfortable',
+      updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 

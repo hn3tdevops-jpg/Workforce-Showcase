@@ -1,10 +1,7 @@
 import {
-  LayoutDashboard, DoorOpen, CheckSquare,
-  Users, CalendarDays, ShieldAlert, Activity,
-  Building2, Package, Clock, BarChart3, Settings,
-  Home, Wrench, Boxes, ChevronsUpDown, Check, LogOut, Loader2
+  Building2, ChevronsUpDown, Check, LogOut, Loader2, Shield
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation as useWouterLocation } from "wouter";
 import { useState } from "react";
 import {
   Sidebar,
@@ -26,12 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
-
-interface NavItem {
-  title: string;
-  url: string;
-  icon: React.ElementType;
-}
+import { useBusinessSettings } from "@/lib/business-settings-context";
+import { ALL_MODULES, getModulesByGroup, type ModuleDefinition } from "@/lib/modules";
 
 function NavGroup({
   label,
@@ -39,9 +32,10 @@ function NavGroup({
   location,
 }: {
   label: string;
-  items: NavItem[];
+  items: ModuleDefinition[];
   location: string;
 }) {
+  if (items.length === 0) return null;
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="text-muted-foreground/60 font-mono text-[10px] uppercase tracking-widest mb-1 px-2">
@@ -50,15 +44,15 @@ function NavGroup({
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
+            <SidebarMenuItem key={item.id}>
               <SidebarMenuButton
                 asChild
-                isActive={location === item.url}
+                isActive={location === item.path}
                 className="hover:bg-primary/10 hover:text-primary transition-colors font-medium h-9 text-sm"
               >
-                <Link href={item.url} className="flex items-center gap-3">
+                <Link href={item.path} className="flex items-center gap-3">
                   <item.icon className="w-4 h-4 shrink-0" />
-                  <span>{item.title}</span>
+                  <span>{item.label}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -69,33 +63,9 @@ function NavGroup({
   );
 }
 
-function FutureNavGroup({ label, items }: { label: string; items: { title: string; icon: React.ElementType }[] }) {
-  return (
-    <SidebarGroup className="opacity-40">
-      <SidebarGroupLabel className="text-muted-foreground/60 font-mono text-[10px] uppercase tracking-widest mb-1 px-2 flex items-center justify-between">
-        {label}
-        <span className="text-[9px] bg-muted/60 px-1.5 py-0.5 rounded font-sans normal-case tracking-normal">
-          Soon
-        </span>
-      </SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton disabled className="h-9 text-sm cursor-not-allowed">
-                <item.icon className="w-4 h-4 shrink-0" />
-                <span>{item.title}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
-  );
-}
-
 function BusinessSelector() {
-  const { session, switchBusiness, canSwitchBusiness, logout } = useAuth();
+  const { session, switchBusiness, logout } = useAuth();
+  const { settings } = useBusinessSettings();
   const [switching, setSwitching] = useState<string | null>(null);
 
   const activeMembership = session?.memberships?.find(
@@ -103,6 +73,7 @@ function BusinessSelector() {
   ) ?? session?.memberships?.[0];
 
   const businessName =
+    settings?.display_name ||
     activeMembership?.business_name ||
     (session?.active_business_id === "local" ? "Local Account" : "Unknown Business");
 
@@ -122,9 +93,17 @@ function BusinessSelector() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-muted/40 hover:bg-muted/70 border border-border/40 hover:border-border/70 transition-all group text-left">
-          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary/15 border border-primary/25 shrink-0">
-            <Building2 className="w-3.5 h-3.5 text-primary" />
-          </div>
+          {settings?.logo_url ? (
+            <img
+              src={settings.logo_url}
+              alt={businessName}
+              className="w-7 h-7 rounded-md object-cover border border-border/30 shrink-0"
+            />
+          ) : (
+            <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary/15 border border-primary/25 shrink-0">
+              <Building2 className="w-3.5 h-3.5 text-primary" />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold leading-none truncate text-foreground">
               {businessName}
@@ -137,12 +116,7 @@ function BusinessSelector() {
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent
-        side="right"
-        align="start"
-        sideOffset={8}
-        className="w-64"
-      >
+      <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-64">
         <div className="px-2 py-1.5">
           <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
             Switch Business
@@ -152,17 +126,17 @@ function BusinessSelector() {
 
         {(session?.memberships ?? []).map((m) => {
           const isActive = m.business_id === session?.active_business_id;
-          const isLoading = switching === m.business_id;
+          const isLoadingItem = switching === m.business_id;
           const name = m.business_name || (m.business_id === "local" ? "Local Account" : m.business_id);
           return (
             <DropdownMenuItem
               key={m.business_id}
               onSelect={() => handleSwitch(m.business_id)}
-              disabled={isLoading}
+              disabled={isLoadingItem}
               className="flex items-center gap-2.5 cursor-pointer"
             >
               <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 ${isActive ? "bg-primary/15 border border-primary/30" : "bg-muted border border-border/40"}`}>
-                {isLoading ? (
+                {isLoadingItem ? (
                   <Loader2 className="w-3 h-3 animate-spin text-primary" />
                 ) : isActive ? (
                   <Check className="w-3 h-3 text-primary" />
@@ -196,41 +170,26 @@ function BusinessSelector() {
 }
 
 export function AppSidebar() {
-  const [location] = useLocation();
-  const { hasRole, session } = useAuth();
+  const [location] = useWouterLocation();
+  const { session, isSuperAdmin } = useAuth();
+  const { settings, isModuleEnabled } = useBusinessSettings();
+  const superAdmin = isSuperAdmin();
 
-  const overviewNav: NavItem[] = [
-    { title: "Dashboard", url: "/app/dashboard", icon: LayoutDashboard },
-    { title: "Session", url: "/app/session", icon: ShieldAlert },
-  ];
+  const enabledIds = settings?.enabled_modules ?? [];
+  const groups = getModulesByGroup(enabledIds, superAdmin);
 
-  const operationsNav: NavItem[] = [
-    { title: "Rooms", url: "/app/rooms", icon: DoorOpen },
-    { title: "Property Map", url: "/app/property-map", icon: Boxes },
-    { title: "Tasks", url: "/app/tasks", icon: CheckSquare },
-    { title: "Assignments", url: "/app/assignments", icon: Users },
-    { title: "Shifts", url: "/app/shifts", icon: CalendarDays },
-    { title: "Event Timeline", url: "/app/timeline", icon: Activity },
-  ];
+  const adminItems = ALL_MODULES.filter(
+    (m) => m.id === "settings" && (!m.requiredRole || isModuleEnabled(m.id))
+  );
 
-  const peopleNav: NavItem[] = [
-    { title: "Users", url: "/app/users", icon: Users },
-  ];
-
-  const adminNav: NavItem[] = [
-    { title: "Settings", url: "/app/admin/settings", icon: Settings },
-  ];
+  const logoSrc = settings?.logo_url ?? `${import.meta.env.BASE_URL}images/logo-icon.png`;
 
   return (
     <Sidebar variant="inset" className="border-r border-border/50">
       <SidebarHeader className="px-3 pt-3 pb-2 border-b border-border/50 shrink-0 gap-3">
         <div className="flex items-center gap-3 px-1">
           <div className="bg-primary/20 p-1.5 rounded-lg border border-primary/30 shrink-0">
-            <img
-              src={`${import.meta.env.BASE_URL}images/logo-icon.png`}
-              alt="Logo"
-              className="w-5 h-5"
-            />
+            <img src={logoSrc} alt="Logo" className="w-5 h-5 object-contain" />
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-bold tracking-tight text-sm leading-none">Workforce</span>
@@ -238,57 +197,35 @@ export function AppSidebar() {
               Operations Console
             </span>
           </div>
+          {superAdmin && (
+            <Shield className="w-3.5 h-3.5 text-amber-400 ml-auto shrink-0" title="Superadmin" />
+          )}
         </div>
 
         <BusinessSelector />
       </SidebarHeader>
 
       <SidebarContent className="py-3 gap-0">
-        <NavGroup label="Overview" items={overviewNav} location={location} />
+        <NavGroup label="Overview" items={groups.overview} location={location} />
 
-        <div className="mx-3 my-1.5 h-px bg-border/40" />
-
-        <NavGroup label="Operations" items={operationsNav} location={location} />
-
-        <div className="mx-3 my-1.5 h-px bg-border/40" />
-
-        <NavGroup label="People" items={peopleNav} location={location} />
-
-        <FutureNavGroup
-          label="Scheduling"
-          items={[
-            { title: "Scheduling", icon: Clock },
-          ]}
-        />
-
-        <FutureNavGroup
-          label="Inventory"
-          items={[
-            { title: "Supply Pars", icon: Package },
-            { title: "Room Assets", icon: Home },
-          ]}
-        />
-
-        <FutureNavGroup
-          label="Hospitable"
-          items={[
-            { title: "Room Board", icon: Building2 },
-            { title: "Inspections", icon: CheckSquare },
-            { title: "Issues", icon: Wrench },
-          ]}
-        />
-
-        {hasRole("admin") && (
-          <>
-            <div className="mx-3 my-1.5 h-px bg-border/40" />
-            <NavGroup label="Admin" items={adminNav} location={location} />
-          </>
+        {groups.overview.length > 0 && (groups.operations.length > 0 || groups.people.length > 0) && (
+          <div className="mx-3 my-1.5 h-px bg-border/40" />
         )}
 
-        <FutureNavGroup
-          label="Reports"
-          items={[{ title: "Analytics", icon: BarChart3 }]}
-        />
+        <NavGroup label="Operations" items={groups.operations} location={location} />
+
+        {groups.operations.length > 0 && groups.people.length > 0 && (
+          <div className="mx-3 my-1.5 h-px bg-border/40" />
+        )}
+
+        <NavGroup label="People" items={groups.people} location={location} />
+
+        {adminItems.length > 0 && (
+          <>
+            <div className="mx-3 my-1.5 h-px bg-border/40" />
+            <NavGroup label="Admin" items={adminItems} location={location} />
+          </>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border/50 px-4 py-3">

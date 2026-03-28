@@ -98,6 +98,7 @@ interface AuthContextType {
   hasPermission: (permission: string) => boolean;
   hasRole: (role: string) => boolean;
   isOwner: () => boolean;
+  isSuperAdmin: () => boolean;
   canSwitchBusiness: boolean;
 }
 
@@ -203,6 +204,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hasPermission("business:owner") ||
     (session?.memberships?.some((m) => m.role?.toLowerCase() === "owner") ?? false);
 
+  const isSuperAdmin = () =>
+    hasRole("superadmin") ||
+    hasPermission("superadmin:*") ||
+    (session as (SessionInfo & { is_superadmin?: boolean }) | null)?.is_superadmin === true;
+
   const canSwitchBusiness = (session?.memberships?.length ?? 0) > 1;
 
   return (
@@ -217,6 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasPermission,
         hasRole,
         isOwner,
+        isSuperAdmin,
         canSwitchBusiness,
       }}
     >
