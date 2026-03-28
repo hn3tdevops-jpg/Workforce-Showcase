@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { getDb } from "../hospitable/db.js";
 import { deriveModels } from "./modeling.js";
 import { runValidation } from "./validation.js";
+import { generateArtifact, ALL_ARTIFACT_TYPES, ARTIFACT_META, type ArtifactType } from "./artifacts.js";
 
 const router = Router();
 
@@ -533,6 +534,59 @@ router.patch("/validations/:id/dismiss", (req: Request, res: Response) => {
   const db = getDb();
   db.prepare("UPDATE studio_validations SET status = 'DISMISSED' WHERE id = ?").run(req.params.id);
   ok(res, { ok: true });
+});
+
+// ── Artifact Generation (Phase 9) ────────────────────────────────────────────
+
+// Generate all artifacts (or specific types via ?types=SUMMARY,DESIGN_DOC)
+router.post("/projects/:id/artifacts/generate", (req: Request, res: Response) => {
+  const db = getDb();
+  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(req.params.id);
+  if (!project) return notFound(res);
+
+  const typesParam = req.query.types as string | undefined;
+  const types: ArtifactType[] = typesParam
+    ? (typesParam.split(",").filter(t => ALL_ARTIFACT_TYPES.includes(t as ArtifactType)) as ArtifactType[])
+    : ALL_ARTIFACT_TYPES;
+
+  const upsert = db.prepare(`
+    INSERT INTO studio_artifacts (id, project_id, artifact_type, label, content, word_count, generated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(project_id, artifact_type) DO UPDATE SET
+      label        = excluded.label,
+      content      = excluded.content,
+      word_count   = excluded.word_count,
+      generated_at = excluded.generated_at
+  `);
+
+  const results: any[] = [];
+  for (const t of types) {
+    const content   = generateArtifact(db, req.params.id, t);
+    const wordCount = content.split(/\s+/).filter(Boolean).length;
+    const meta      = ARTIFACT_META[t];
+    const ts        = now();
+    upsert.run(uid(), req.params.id, t, meta.label, content, wordCount, ts);
+    results.push({ artifact_type: t, label: meta.label, word_count: wordCount, generated_at: ts });
+  }
+
+  ok(res, results);
+});
+
+// List all artifacts for a project
+router.get("/projects/:id/artifacts", (req: Request, res: Response) => {
+  const db = getDb();
+  ok(res, db.prepare(`
+    SELECT id, project_id, artifact_type, label, word_count, generated_at
+    FROM studio_artifacts WHERE project_id = ? ORDER BY artifact_type
+  `).all(req.params.id));
+});
+
+// Get full content of a single artifact
+router.get("/artifacts/:id", (req: Request, res: Response) => {
+  const db = getDb();
+  const artifact = db.prepare("SELECT * FROM studio_artifacts WHERE id = ?").get(req.params.id);
+  if (!artifact) return notFound(res);
+  ok(res, artifact);
 });
 
 export default router;

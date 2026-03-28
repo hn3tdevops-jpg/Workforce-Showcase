@@ -23,6 +23,7 @@ import {
   BookOpen, Zap, AlertTriangle, Settings2, Database, GitBranch,
   Layout, Brain, ArrowRight, ChevronDown, ChevronUp, Cpu,
   ShieldCheck, XCircle, Info, AlertCircle, EyeOff,
+  PackageOpen, Copy, Check, Download, Wand2,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -98,6 +99,30 @@ interface StudioValidation {
   created_at:   string;
 }
 
+type ArtifactType = "SUMMARY" | "DESIGN_DOC" | "SCHEMA_DRAFT" | "API_SPEC" | "ROADMAP" | "COPILOT_PACK";
+
+interface StudioArtifactMeta {
+  id:            string;
+  project_id:    string;
+  artifact_type: ArtifactType;
+  label:         string;
+  word_count:    number;
+  generated_at:  string;
+}
+
+interface StudioArtifact extends StudioArtifactMeta {
+  content: string;
+}
+
+const ARTIFACT_EMOJI: Record<ArtifactType, string> = {
+  SUMMARY:      "📋",
+  DESIGN_DOC:   "📐",
+  SCHEMA_DRAFT: "🗄️",
+  API_SPEC:     "🔌",
+  ROADMAP:      "🗺️",
+  COPILOT_PACK: "🤖",
+};
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 const studioApi = {
@@ -120,6 +145,10 @@ const studioApi = {
   getValidations:  (pid: string) => fetchApi<StudioValidation[]>(`/studio/projects/${pid}/validations`),
   validate:        (pid: string) => fetchApi<StudioValidation[]>(`/studio/projects/${pid}/validate`, { method: "POST" }),
   dismissValidation: (vid: string) => fetchApi(`/studio/validations/${vid}/dismiss`, { method: "PATCH" }),
+  getArtifacts:   (pid: string) => fetchApi<StudioArtifactMeta[]>(`/studio/projects/${pid}/artifacts`),
+  generateAll:    (pid: string) => fetchApi<StudioArtifactMeta[]>(`/studio/projects/${pid}/artifacts/generate`, { method: "POST" }),
+  generateOne:    (pid: string, type: ArtifactType) => fetchApi<StudioArtifactMeta[]>(`/studio/projects/${pid}/artifacts/generate?types=${type}`, { method: "POST" }),
+  getArtifact:    (aid: string) => fetchApi<StudioArtifact>(`/studio/artifacts/${aid}`),
 };
 
 // ── Metadata ──────────────────────────────────────────────────────────────────
@@ -621,6 +650,190 @@ function ModelsPanel({ projectId }: { projectId: string }) {
   );
 }
 
+// ── Artifacts Panel (Phase 9) ────────────────────────────────────────────────
+
+const ARTIFACT_ORDER: ArtifactType[] = ["SUMMARY","DESIGN_DOC","SCHEMA_DRAFT","API_SPEC","ROADMAP","COPILOT_PACK"];
+const ARTIFACT_LABEL: Record<ArtifactType, string> = {
+  SUMMARY:      "Executive Summary",
+  DESIGN_DOC:   "Design Document",
+  SCHEMA_DRAFT: "Schema Draft",
+  API_SPEC:     "API Spec",
+  ROADMAP:      "Roadmap",
+  COPILOT_PACK: "Copilot Pack",
+};
+const ARTIFACT_DESC: Record<ArtifactType, string> = {
+  SUMMARY:      "High-level overview & stats",
+  DESIGN_DOC:   "Full structured design spec (Markdown)",
+  SCHEMA_DRAFT: "SQL table definitions for all entities",
+  API_SPEC:     "REST endpoint blueprint from models",
+  ROADMAP:      "Phased delivery plan from requirements",
+  COPILOT_PACK: "AI-ready context bundle for developers",
+};
+
+function ArtifactsPanel({ projectId }: { projectId: string }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const { data: artifacts = [], isLoading, refetch } = useQuery({
+    queryKey: ["studio:artifacts", projectId],
+    queryFn: () => studioApi.getArtifacts(projectId),
+  });
+
+  // Full content query (lazy — only when expanded)
+  const { data: expandedArtifact } = useQuery({
+    queryKey: ["studio:artifact", expandedId],
+    queryFn: () => studioApi.getArtifact(expandedId!),
+    enabled: !!expandedId,
+  });
+
+  const generateAllMut = useMutation({
+    mutationFn: () => studioApi.generateAll(projectId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["studio:artifacts", projectId] });
+      toast({ title: "All artifacts generated" });
+    },
+    onError: () => toast({ title: "Generation failed", variant: "destructive" }),
+  });
+
+  const generateOneMut = useMutation({
+    mutationFn: (type: ArtifactType) => studioApi.generateOne(projectId, type),
+    onSuccess: (_, type) => {
+      qc.invalidateQueries({ queryKey: ["studio:artifacts", projectId] });
+      toast({ title: `${ARTIFACT_LABEL[type]} regenerated` });
+    },
+    onError: () => toast({ title: "Regeneration failed", variant: "destructive" }),
+  });
+
+  const artifactMap = new Map(artifacts.map(a => [a.artifact_type, a]));
+
+  async function handleCopy(content: string, id: string) {
+    await navigator.clipboard.writeText(content);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  function handleDownload(artifact: StudioArtifact) {
+    const ext = artifact.artifact_type === "DESIGN_DOC" ? "md" : "txt";
+    const filename = `${artifact.artifact_type.toLowerCase()}.${ext}`;
+    const blob = new Blob([artifact.content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* generate all button */}
+      <div className="shrink-0 px-3 pt-2 pb-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-7 text-xs gap-1.5 border-dashed border-primary/40 hover:border-primary/70 hover:bg-primary/5"
+          onClick={() => generateAllMut.mutate()}
+          disabled={generateAllMut.isPending}
+        >
+          {generateAllMut.isPending
+            ? <><Loader2 className="w-3 h-3 animate-spin" />Generating…</>
+            : <><Wand2 className="w-3 h-3 text-primary" />Generate All Artifacts</>
+          }
+        </Button>
+        {artifacts.length === 0 && !isLoading && (
+          <p className="text-[9px] text-muted-foreground text-center mt-1.5">
+            Click Generate to build all 6 output documents from your project data.
+          </p>
+        )}
+      </div>
+
+      {/* artifact cards */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {isLoading && ARTIFACT_ORDER.map(t => <Skeleton key={t} className="h-16 w-full rounded-lg" />)}
+
+        {!isLoading && ARTIFACT_ORDER.map(type => {
+          const meta   = artifactMap.get(type);
+          const isOpen = expandedId === (meta?.id ?? null);
+          const emoji  = ARTIFACT_EMOJI[type];
+
+          return (
+            <div key={type} className="rounded-lg border border-border/40 bg-muted/10 overflow-hidden">
+              {/* header row */}
+              <div className="flex items-center gap-2 px-2.5 py-2">
+                <span className="text-sm shrink-0">{emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-foreground truncate">{ARTIFACT_LABEL[type]}</p>
+                  <p className="text-[9px] text-muted-foreground leading-tight">{ARTIFACT_DESC[type]}</p>
+                </div>
+                {meta ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[8px] text-muted-foreground font-mono">{meta.word_count}w</span>
+                    <button
+                      onClick={() => setExpandedId(isOpen ? null : meta.id)}
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20"
+                    >
+                      {isOpen ? "Hide" : "View"}
+                    </button>
+                    <button
+                      onClick={() => generateOneMut.mutate(type)}
+                      title="Regenerate"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => generateOneMut.mutate(type)}
+                    disabled={generateOneMut.isPending}
+                    className="text-[9px] px-1.5 py-0.5 rounded bg-muted/60 border border-border/40 text-muted-foreground hover:text-foreground hover:border-border/70 disabled:opacity-50 shrink-0"
+                  >
+                    Generate
+                  </button>
+                )}
+              </div>
+
+              {/* expanded content viewer */}
+              {isOpen && (
+                <div className="border-t border-border/40">
+                  <div className="flex items-center justify-end gap-1 px-2.5 py-1 border-b border-border/30 bg-muted/5">
+                    {expandedArtifact && (
+                      <>
+                        <button
+                          onClick={() => handleCopy(expandedArtifact.content, expandedArtifact.id)}
+                          className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground"
+                        >
+                          {copied === expandedArtifact.id
+                            ? <><Check className="w-2.5 h-2.5 text-emerald-400" /><span className="text-emerald-400">Copied!</span></>
+                            : <><Copy className="w-2.5 h-2.5" />Copy</>
+                          }
+                        </button>
+                        <button
+                          onClick={() => handleDownload(expandedArtifact)}
+                          className="flex items-center gap-1 text-[9px] text-muted-foreground hover:text-foreground ml-2"
+                        >
+                          <Download className="w-2.5 h-2.5" />Save
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {!expandedArtifact ? (
+                    <div className="p-3"><Skeleton className="h-32 w-full" /></div>
+                  ) : (
+                    <pre className="p-3 text-[10px] text-foreground/80 font-mono whitespace-pre-wrap break-words leading-relaxed max-h-80 overflow-y-auto bg-muted/5">
+                      {expandedArtifact.content}
+                    </pre>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Validation Panel (Phase 8) ────────────────────────────────────────────────
 
 const SEVERITY_ICON: Record<string, React.ElementType> = {
@@ -773,7 +986,7 @@ function ValidationPanel({ projectId }: { projectId: string }) {
 // ── Outputs panel ─────────────────────────────────────────────────────────────
 
 type OutputTab = "notes" | "requirements" | "decisions" | "questions";
-type PanelMode = "captured" | "derived" | "validate";
+type PanelMode = "captured" | "derived" | "validate" | "artifacts";
 
 function OutputsPanel({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
@@ -806,29 +1019,27 @@ function OutputsPanel({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex flex-col h-full border-l border-border/50 bg-card/30 overflow-hidden">
-      {/* header with mode toggle */}
-      <div className="shrink-0 px-1.5 py-1.5 border-b border-border/50 flex items-center gap-0.5">
-        {(["captured", "derived", "validate"] as PanelMode[]).map(m => {
-          const Icon = m === "captured" ? FileText : m === "derived" ? Cpu : ShieldCheck;
-          const label = m === "captured" ? "Captured" : m === "derived" ? "Derived" : "Validate";
-          return (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
-                mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="w-3 h-3" />{label}
-            </button>
-          );
-        })}
-        {mode === "captured" && (
-          <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => refetch()}>
-            <RefreshCw className="w-2.5 h-2.5" />
-          </Button>
-        )}
+      {/* header with mode toggle — 2×2 grid */}
+      <div className="shrink-0 px-1.5 py-1.5 border-b border-border/50 grid grid-cols-2 gap-0.5">
+        {(
+          [
+            { m: "captured",  Icon: FileText,     label: "Captured"  },
+            { m: "derived",   Icon: Cpu,          label: "Derived"   },
+            { m: "validate",  Icon: ShieldCheck,  label: "Validate"  },
+            { m: "artifacts", Icon: PackageOpen,  label: "Artifacts" },
+          ] as { m: PanelMode; Icon: React.ElementType; label: string }[]
+        ).map(({ m, Icon, label }) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={cn(
+              "flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
+              mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Icon className="w-3 h-3" />{label}
+          </button>
+        ))}
       </div>
 
       {/* Derived Models panel */}
@@ -836,6 +1047,9 @@ function OutputsPanel({ projectId }: { projectId: string }) {
 
       {/* Validation panel */}
       {mode === "validate" && <ValidationPanel projectId={projectId} />}
+
+      {/* Artifacts panel */}
+      {mode === "artifacts" && <ArtifactsPanel projectId={projectId} />}
 
       {/* Captured tabs — only shown when mode=captured */}
       {mode === "captured" && (

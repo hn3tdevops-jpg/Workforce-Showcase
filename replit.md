@@ -13,7 +13,7 @@ This project is a pnpm workspace monorepo (TypeScript + pnpm) for **Silver Sands
 | Shifts | Live |
 | Event Timeline | Live |
 | Users | Live |
-| **Studio** | **Live** — 4-panel layout, project/session/chat/outputs; Phase 7: derived models (entities/workflows/views/concepts/relationships); Phase 8: validation service (10 deterministic rules, dismiss) |
+| **Studio** | **Live** — Phases 1–9 complete: chat sessions, structured extraction, derived models (entities/workflows/views/concepts/relationships), validation (10 rules, dismiss), artifact generation (SUMMARY, DESIGN_DOC, SCHEMA_DRAFT, API_SPEC, ROADMAP, COPILOT_PACK — inline view, copy, download) |
 | Settings | Live (owner-only) |
 | Session Debug | Live |
 

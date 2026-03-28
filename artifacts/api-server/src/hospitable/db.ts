@@ -415,6 +415,17 @@ function initSchema(db: Database.Database): void {
       UNIQUE(project_id, rule_id, subject_id)
     );
 
+    CREATE TABLE IF NOT EXISTS studio_artifacts (
+      id            TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id    TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      artifact_type TEXT NOT NULL,
+      label         TEXT NOT NULL,
+      content       TEXT NOT NULL,
+      word_count    INTEGER NOT NULL DEFAULT 0,
+      generated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, artifact_type)
+    );
+
   `);
 }
 
