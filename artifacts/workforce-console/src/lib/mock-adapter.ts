@@ -29,11 +29,13 @@ import {
   type ShiftStatus,
   type SwapStatus,
   type MarketplaceStatus,
+  type ShiftAssignee,
 } from "./mock-data";
 
 export type {
   MockShift, MockSwapRequest, MockMarketplaceListing,
   ShiftRole, ShiftStatus, SwapStatus, MarketplaceStatus,
+  ShiftAssignee,
 };
 
 export const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";

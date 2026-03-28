@@ -1,4 +1,5 @@
-import { Building, LogOut, ChevronDown, User, ExternalLink, MapPin, Users, Settings, Shield } from "lucide-react";
+import { useState } from "react";
+import { Building, LogOut, ChevronDown, User, ExternalLink, MapPin, Users, Settings, Shield, Bell, BellDot } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "@/lib/location-context";
 import { useBusinessSettings } from "@/lib/business-settings-context";
@@ -13,6 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchApi } from "@/lib/api-client";
+import { formatDistanceToNow } from "date-fns";
 
 const ENV = import.meta.env.MODE ?? "development";
 
@@ -82,6 +86,103 @@ function LocationSelector() {
   );
 }
 
+// ── Notifications Bell ────────────────────────────────────────────────────────
+
+interface Notification {
+  id: string; type: string; title: string; body: string | null;
+  link: string | null; read_at: string | null; created_at: string;
+}
+
+function NotificationBell() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const { data: countData } = useQuery({
+    queryKey: ["/notifications/unread-count"],
+    queryFn: () => fetchApi<{ count: number }>("/notifications/unread-count"),
+    refetchInterval: 30_000,
+  });
+
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ["/notifications"],
+    queryFn: () => fetchApi("/notifications/?limit=15"),
+    enabled: open,
+  });
+
+  const readAll = useMutation({
+    mutationFn: () => fetchApi("/notifications/read-all", { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+      qc.invalidateQueries({ queryKey: ["/notifications"] });
+    },
+  });
+
+  const readOne = useMutation({
+    mutationFn: (id: string) => fetchApi(`/notifications/${id}/read`, { method: "PATCH" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/notifications/unread-count"] });
+      qc.invalidateQueries({ queryKey: ["/notifications"] });
+    },
+  });
+
+  const unread = countData?.count ?? 0;
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="relative h-8 w-8 p-0 hover:bg-accent/50">
+          {unread > 0 ? (
+            <BellDot className="w-4 h-4 text-amber-400" />
+          ) : (
+            <Bell className="w-4 h-4 text-muted-foreground" />
+          )}
+          {unread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full bg-red-500 text-[9px] font-bold text-white flex items-center justify-center px-0.5 leading-none">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 border-border/50 shadow-xl shadow-black/30 max-h-[420px] overflow-hidden flex flex-col">
+        <DropdownMenuLabel className="flex items-center justify-between py-2.5 px-3">
+          <span className="text-sm font-medium">Notifications</span>
+          {unread > 0 && (
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+              onClick={(e) => { e.preventDefault(); readAll.mutate(); }}>
+              Mark all read
+            </Button>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-border/50 my-0" />
+        <div className="overflow-y-auto flex-1">
+          {notifications.length === 0 ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">No notifications yet</div>
+          ) : (
+            notifications.map(n => (
+              <div
+                key={n.id}
+                onClick={() => { if (!n.read_at) readOne.mutate(n.id); if (n.link) window.location.href = n.link; }}
+                className={`px-3 py-3 border-b border-border/30 cursor-pointer hover:bg-muted/30 transition-colors last:border-0 ${!n.read_at ? "bg-primary/5" : ""}`}
+              >
+                <div className="flex items-start gap-2">
+                  {!n.read_at && <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />}
+                  <div className={!n.read_at ? "" : "ml-3.5"}>
+                    <p className={`text-xs font-medium leading-snug ${n.read_at ? "text-muted-foreground" : "text-foreground"}`}>{n.title}</p>
+                    {n.body && <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
+                    <p className="text-[9px] text-muted-foreground/60 mt-1">
+                      {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function TopNav() {
   const { session, logout, switchBusiness, isOwner, isSuperAdmin } = useAuth();
   const { settings } = useBusinessSettings();
@@ -113,6 +214,9 @@ export function TopNav() {
       <div className="flex items-center gap-1.5">
         {/* Location selector */}
         <LocationSelector />
+
+        {/* Notification bell */}
+        <NotificationBell />
 
         {/* Business switcher — only shown when user has multiple memberships */}
         {canSwitch && (

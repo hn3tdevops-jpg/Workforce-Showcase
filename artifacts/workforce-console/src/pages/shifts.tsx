@@ -11,7 +11,7 @@ import {
   claimMarketplaceListing, cancelMarketplaceListing,
   DEMO_MODE,
 } from "@/lib/mock-adapter";
-import type { MockShift, MockSwapRequest, MockMarketplaceListing, ShiftRole, ShiftStatus } from "@/lib/mock-adapter";
+import type { MockShift, MockSwapRequest, MockMarketplaceListing, ShiftRole, ShiftStatus, ShiftAssignee } from "@/lib/mock-adapter";
 import { MOCK_USERS } from "@/lib/mock-data";
 import { useLocation } from "@/lib/location-context";
 import { Badge } from "@/components/ui/badge";
@@ -392,18 +392,29 @@ function ShiftDetailPanel({
             </div>
             <div className="space-y-1.5">
               {shift.assignee_ids.length === 0 && <p className="text-xs text-muted-foreground/50 italic text-center py-2">No assignees yet</p>}
-              {shift.assignee_ids.map(uid => (
-                <div key={uid} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-muted/10">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">{uInit(uid)}</span>
-                    <div>
-                      <p className="text-xs font-medium">{uName(uid)}</p>
-                      <p className="text-[10px] text-muted-foreground">{MOCK_USERS.find(u => u.id === uid)?.job_title ?? "Staff"}</p>
+              {shift.assignee_ids.map(uid => {
+                const ep = shift.assignees?.find(a => a.user_id === uid);
+                const displayName = ep?.ep_name ?? uName(uid);
+                const displayRole = ep?.ep_title ?? MOCK_USERS.find(u => u.id === uid)?.job_title ?? "Staff";
+                const initials = displayName ? displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() : uInit(uid);
+                return (
+                  <div key={uid} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-muted/10">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">{initials}</span>
+                      <div>
+                        <p className="text-xs font-medium">{displayName}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[10px] text-muted-foreground">{displayRole}</p>
+                          {ep?.employee_code && (
+                            <span className="text-[9px] font-mono text-primary/60 border border-primary/20 px-1 rounded">{ep.employee_code}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-destructive" onClick={() => removeMut.mutate(uid)}><UserMinus className="w-3.5 h-3.5" /></Button>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/40 hover:text-destructive" onClick={() => removeMut.mutate(uid)}><UserMinus className="w-3.5 h-3.5" /></Button>
-                </div>
-              ))}
+                );
+              })}
               {Array.from({ length: Math.max(0, shift.capacity - shift.assignee_ids.length) }).map((_, i) => (
                 <div key={i} className="flex items-center gap-2 p-2 rounded-lg border border-dashed border-border/25">
                   <span className="w-7 h-7 rounded-full border-2 border-dashed border-border/40 flex items-center justify-center shrink-0"><Plus className="w-3 h-3 text-muted-foreground/30" /></span>

@@ -73,6 +73,10 @@ interface AnyTask {
   due_date?: string | null;
   assigned_user_id?: string | null;
   assigned_to?: string | null;
+  assignee_ep_id?: string | null;
+  assignee_ep_name?: string | null;
+  assignee_ep_title?: string | null;
+  assignee_ep_code?: string | null;
   location_id?: string | null;
   room_id?: string | null;
   room_number?: string | null;
@@ -121,6 +125,7 @@ function TaskRow({
 }) {
   const assigneeId = getAssigneeId(task);
   const assignee = users.find((u) => u.id === assigneeId);
+  const displayAssigneeName = task.assignee_ep_name ?? (assignee ? `${assignee.first_name} ${assignee.last_name}` : null);
   const dueAt = getDueAt(task);
   const roomLabel = task.room_number ? `Room ${task.room_number}` : null;
   const isOverdue =
@@ -172,7 +177,7 @@ function TaskRow({
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 max-w-[140px]">
               <User className="w-3 h-3 shrink-0" />
               <span className="truncate">
-                {assignee ? `${assignee.first_name} ${assignee.last_name}` : "Unassigned"}
+                {displayAssigneeName ?? "Unassigned"}
               </span>
               <ChevronDown className="w-3 h-3 shrink-0" />
             </Button>

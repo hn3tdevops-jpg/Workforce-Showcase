@@ -395,7 +395,7 @@ function StaffDrawer({ user, open, onClose, onUpdate, onDelete }: {
                 Roles & Permissions
               </p>
               <div className="space-y-2">
-                {user.memberships.map((m: MockUserMembership, i) => (
+                {(user.memberships ?? []).map((m: MockUserMembership, i) => (
                   <div key={i} className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-background/40">
                     <div className="shrink-0">
                       {m.scope === "business"

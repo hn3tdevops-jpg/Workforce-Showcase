@@ -227,6 +227,15 @@ export const MOCK_TASKS = [
 export type ShiftRole = "housekeeping" | "front_desk" | "maintenance" | "supervisor" | "concierge";
 export type ShiftStatus = "open" | "partial" | "filled" | "draft" | "cancelled" | "in_progress" | "completed";
 
+export interface ShiftAssignee {
+  user_id: string;
+  employee_profile_id: string | null;
+  ep_name: string | null;
+  ep_title: string | null;
+  employee_code: string | null;
+  assigned_at?: string;
+}
+
 export interface MockShift {
   id: string;
   title: string;
@@ -236,6 +245,7 @@ export interface MockShift {
   end_time: string;    // "HH:MM"
   location_id: string;
   assignee_ids: string[];
+  assignees?: ShiftAssignee[];  // enriched list from EP JOIN
   capacity: number;
   status: ShiftStatus;
   notes?: string;

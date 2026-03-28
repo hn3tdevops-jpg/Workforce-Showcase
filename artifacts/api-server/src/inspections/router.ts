@@ -67,6 +67,21 @@ router.get("/summary", (req: Request, res: Response) => {
   ok(res, { total: total.n, by_status: summary, avg_score: avg.a, pass_rate: passRate.r });
 });
 
+/** GET /inspections/export.csv */
+router.get("/export.csv", (req: Request, res: Response) => {
+  const db = getDb();
+  const rows = db.prepare(`${INSP_SELECT} WHERE ri.business_id = 'biz-silver-sands' ORDER BY ri.created_at DESC`).all() as any[];
+  const header = "id,room_number,status,overall_score,passed,inspector,scheduled_for,conducted_at\n";
+  const csv = rows.map(r =>
+    [r.id, r.room_number ?? "", r.status, r.overall_score ?? "", r.passed != null ? (r.passed ? "pass" : "fail") : "",
+     `"${(r.inspector_name ?? "").replace(/"/g, '""')}"`,
+     r.scheduled_for ?? "", r.conducted_at ?? ""].join(",")
+  ).join("\n");
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=inspections.csv");
+  res.send(header + csv);
+});
+
 /** GET /inspections/:id */
 router.get("/:id", (req: Request, res: Response) => {
   const db = getDb();

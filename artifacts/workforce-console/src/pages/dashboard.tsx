@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "@/lib/location-context";
-import { fetchRoomsMock, fetchTasksMock, fetchDashboardSummary, fetchMaintenanceBoard, DEMO_MODE } from "@/lib/mock-adapter";
+import { fetchRoomsMock, fetchTasksMock, fetchDashboardSummary, DEMO_MODE } from "@/lib/mock-adapter";
 import { MOCK_ACTIVITY } from "@/lib/mock-data";
+import { fetchApi } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,7 @@ import { Link } from "wouter";
 import {
   DoorOpen, CheckSquare, Users, ArrowRight,
   Activity, CheckCircle2, AlertTriangle, Wrench, ClipboardList,
+  HardHat, ShieldCheck,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -45,10 +47,14 @@ export default function Dashboard() {
     queryFn: () => fetchTasksMock(locationId || undefined),
   });
 
-  const { data: maintenanceIssues = [] } = useQuery({
-    queryKey: ["/hospitable/maintenance", locationId],
-    queryFn: () => fetchMaintenanceBoard(locationId),
-    enabled: !!locationId,
+  const { data: maintSummary } = useQuery({
+    queryKey: ["/maintenance/summary"],
+    queryFn: () => fetchApi<{ total: number; by_status: Record<string, number> }>("/maintenance/summary"),
+  });
+
+  const { data: inspSummary } = useQuery({
+    queryKey: ["/inspections/summary"],
+    queryFn: () => fetchApi<{ total: number; pass_rate: number | null; avg_score: number | null; by_status: Record<string, number> }>("/inspections/summary"),
   });
 
   const activeBusiness = session?.memberships.find(
@@ -86,7 +92,10 @@ export default function Dashboard() {
   const cleanRooms = summary
     ? (summary.clean + summary.inspected)
     : (roomStats["clean"] ?? 0) + (roomStats["inspected"] ?? 0);
-  const unresolvedIssues = summary?.unresolved_issues ?? (maintenanceIssues as unknown[]).length;
+  const unresolvedIssues = maintSummary
+    ? (maintSummary.by_status["open"] ?? 0) + (maintSummary.by_status["in_progress"] ?? 0)
+    : summary?.unresolved_issues ?? 0;
+  const inspPassRate = inspSummary?.pass_rate;
 
   const isLoadingKpis = loadingSummary && loadingRooms;
 
@@ -129,15 +138,25 @@ export default function Dashboard() {
     },
   ];
 
-  if (unresolvedIssues > 0) {
+  statCards.push({
+    label: "Open Maintenance",
+    value: unresolvedIssues,
+    icon: HardHat,
+    color: "text-amber-400",
+    bg: "bg-amber-400/10",
+    loading: false,
+    link: "/app/maintenance",
+  });
+
+  if (inspPassRate !== null && inspPassRate !== undefined) {
     statCards.push({
-      label: "Open Maintenance Issues",
-      value: unresolvedIssues,
-      icon: Wrench,
-      color: "text-orange-400",
-      bg: "bg-orange-400/10",
+      label: "Inspection Pass Rate",
+      value: `${inspPassRate}%`,
+      icon: ShieldCheck,
+      color: inspPassRate >= 80 ? "text-emerald-400" : "text-red-400",
+      bg: inspPassRate >= 80 ? "bg-emerald-400/10" : "bg-red-400/10",
       loading: false,
-      link: "/app/rooms",
+      link: "/app/inspections",
     });
   }
 

@@ -306,8 +306,14 @@ router.get("/tasks", (req: Request, res: Response) => {
   const db = getDb();
   const { location_id, status, room_id, assigned_user_id } = req.query;
 
-  let sql = `SELECT t.*, r.room_number FROM hk_tasks t
-             LEFT JOIN hk_rooms r ON r.id = t.room_id WHERE 1=1`;
+  let sql = `SELECT t.*, r.room_number,
+               ep.legal_first_name || ' ' || ep.legal_last_name AS assignee_ep_name,
+               ep.job_title AS assignee_ep_title,
+               ep.employee_code AS assignee_ep_code
+             FROM hk_tasks t
+             LEFT JOIN hk_rooms r ON r.id = t.room_id
+             LEFT JOIN employee_profiles ep ON ep.id = t.assignee_ep_id
+             WHERE 1=1`;
   const params: any[] = [];
   if (location_id) { sql += " AND t.location_id = ?"; params.push(location_id); }
   if (status) { sql += " AND t.status = ?"; params.push(status); }

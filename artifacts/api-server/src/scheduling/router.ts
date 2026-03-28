@@ -13,10 +13,20 @@ function badRequest(res: Response, msg: string) { res.status(400).json({ detail:
 function loadShift(db: ReturnType<typeof getDb>, shiftId: string) {
   const shift = db.prepare("SELECT * FROM shifts WHERE id = ?").get(shiftId) as Record<string, unknown> | undefined;
   if (!shift) return null;
-  const assignees = db.prepare(
-    "SELECT user_id FROM shift_assignees WHERE shift_id = ? ORDER BY assigned_at"
-  ).all(shiftId) as Array<{ user_id: string }>;
-  return { ...shift, assignee_ids: assignees.map(a => a.user_id) };
+  const assignees = db.prepare(`
+    SELECT sa.user_id, sa.employee_profile_id, sa.assigned_at,
+      ep.legal_first_name || ' ' || ep.legal_last_name AS ep_name,
+      ep.job_title AS ep_title, ep.employee_code
+    FROM shift_assignees sa
+    LEFT JOIN employee_profiles ep ON ep.id = sa.employee_profile_id
+    WHERE sa.shift_id = ?
+    ORDER BY sa.assigned_at
+  `).all(shiftId) as Array<{ user_id: string; employee_profile_id: string | null; ep_name: string | null; ep_title: string | null; employee_code: string | null }>;
+  return {
+    ...shift,
+    assignee_ids: assignees.map(a => a.user_id),
+    assignees,
+  };
 }
 
 function recalcStatus(db: ReturnType<typeof getDb>, shiftId: string) {
@@ -50,10 +60,16 @@ router.get("/shifts/", (req: Request, res: Response) => {
 
   const shifts = db.prepare(sql).all(...vals) as Array<Record<string, unknown>>;
   const result = shifts.map(s => {
-    const assignees = db.prepare(
-      "SELECT user_id FROM shift_assignees WHERE shift_id = ? ORDER BY assigned_at"
-    ).all(s.id as string) as Array<{ user_id: string }>;
-    return { ...s, assignee_ids: assignees.map(a => a.user_id) };
+    const assignees = db.prepare(`
+      SELECT sa.user_id, sa.employee_profile_id, sa.assigned_at,
+        ep.legal_first_name || ' ' || ep.legal_last_name AS ep_name,
+        ep.job_title AS ep_title, ep.employee_code
+      FROM shift_assignees sa
+      LEFT JOIN employee_profiles ep ON ep.id = sa.employee_profile_id
+      WHERE sa.shift_id = ?
+      ORDER BY sa.assigned_at
+    `).all(s.id as string) as Array<{ user_id: string; employee_profile_id: string | null; ep_name: string | null }>;
+    return { ...s, assignee_ids: assignees.map(a => a.user_id), assignees };
   });
   ok(res, result);
 });

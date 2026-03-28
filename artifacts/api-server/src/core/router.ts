@@ -129,7 +129,7 @@ router.get("/business/:businessId/settings", (req: Request, res: Response) => {
     logo_url: null,
     primary_color: "#6366f1",
     accent_color: "#14b8a6",
-    enabled_modules: '["dashboard","rooms","property-map","tasks","assignments","shifts","timeline","users","studio","session"]',
+    enabled_modules: '["dashboard","rooms","property-map","tasks","assignments","shifts","timeline","users","employees","studio","promotions","inspections","session","inventory","maintenance"]',
     custom_labels: "{}",
     updated_at: new Date().toISOString(),
   };

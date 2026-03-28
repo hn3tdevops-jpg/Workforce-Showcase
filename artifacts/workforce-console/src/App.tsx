@@ -24,6 +24,8 @@ import Studio from "@/pages/studio";
 import Promotions from "@/pages/promotions";
 import Employees from "@/pages/employees";
 import Inspections from "@/pages/inspections";
+import Maintenance from "@/pages/maintenance";
+import Inventory from "@/pages/inventory";
 import InviteClaim from "@/pages/invite";
 import NotFound from "@/pages/not-found";
 
@@ -62,6 +64,8 @@ function ProtectedRoutes() {
               <Route path="/app/promotions"  component={() => <PageContent><Promotions /></PageContent>} />
               <Route path="/app/employees"    component={() => <PageContent><Employees /></PageContent>} />
               <Route path="/app/inspections" component={() => <PageContent><Inspections /></PageContent>} />
+              <Route path="/app/maintenance" component={() => <PageContent><Maintenance /></PageContent>} />
+              <Route path="/app/inventory"   component={() => <PageContent><Inventory /></PageContent>} />
               <Route path="/app/session"      component={() => <PageContent><SessionDebug /></PageContent>} />
               <Route path="/app/timeline"     component={Timeline} />
               <Route path="/app/property-map" component={PropertyMap} />

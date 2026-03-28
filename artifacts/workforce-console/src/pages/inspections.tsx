@@ -16,7 +16,7 @@ import {
 import {
   ClipboardCheck, Clock, CheckCircle2, XCircle, AlertCircle,
   RefreshCw, Plus, Play, Send, ThumbsUp, Loader2, ChevronDown, ChevronUp,
-  Building2, Star,
+  Building2, Star, Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -434,13 +434,17 @@ export default function Inspections() {
             Room quality control and inspection management
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             <RefreshCw className="w-4 h-4" />
           </Button>
+          <Button size="sm" variant="outline" onClick={() => window.open("/api/v1/inspections/export.csv", "_blank")}>
+            <Download className="w-4 h-4 mr-1" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-1" />
-            Schedule Inspection
+            <span className="hidden sm:inline">Schedule</span> Inspection
           </Button>
         </div>
       </div>

@@ -417,6 +417,20 @@ function initSchema(db: Database.Database): void {
       UNIQUE(project_id, rule_id, subject_id)
     );
 
+    -- ── Notifications ───────────────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id         TEXT PRIMARY KEY,
+      type       TEXT NOT NULL DEFAULT 'info',
+      title      TEXT NOT NULL,
+      body       TEXT,
+      link       TEXT,
+      read_at    TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notif_read ON notifications(read_at);
+
     -- ── Room Inspections ────────────────────────────────────────────────────
 
     CREATE TABLE IF NOT EXISTS room_inspections (
@@ -841,8 +855,9 @@ function seedWorkforceIdentity(db: Database.Database): void {
 function seedIfEmpty(db: Database.Database): void {
   // ── Migrations: add new columns to existing tables (idempotent) ──────────
   const migrations: [string, string][] = [
-    ["hk_tasks",        "ALTER TABLE hk_tasks ADD COLUMN assignee_ep_id TEXT REFERENCES employee_profiles(id)"],
-    ["shift_assignees", "ALTER TABLE shift_assignees ADD COLUMN employee_profile_id TEXT REFERENCES employee_profiles(id)"],
+    ["hk_tasks",         "ALTER TABLE hk_tasks ADD COLUMN assignee_ep_id TEXT REFERENCES employee_profiles(id)"],
+    ["shift_assignees",  "ALTER TABLE shift_assignees ADD COLUMN employee_profile_id TEXT REFERENCES employee_profiles(id)"],
+    ["maintenance_issues","ALTER TABLE maintenance_issues ADD COLUMN assignee_ep_id TEXT REFERENCES employee_profiles(id)"],
   ];
   for (const [table, sql] of migrations) {
     try {
@@ -855,15 +870,20 @@ function seedIfEmpty(db: Database.Database): void {
     } catch { /* ignore */ }
   }
 
-  // ── Migration: ensure "studio" is in enabled_modules for all business settings ──
+  // ── Migration: ensure all required modules are in enabled_modules ────────────
+  const REQUIRED_MODULES = ["studio", "employees", "promotions", "inspections", "inventory", "maintenance"];
   const settingsRows = db.prepare("SELECT business_id, enabled_modules FROM business_settings").all() as { business_id: string; enabled_modules: string }[];
   for (const row of settingsRows) {
     try {
       const mods: string[] = JSON.parse(row.enabled_modules);
-      if (!mods.includes("studio")) {
-        const idx = mods.indexOf("session");
-        if (idx >= 0) mods.splice(idx, 0, "studio");
-        else mods.push("studio");
+      let changed = false;
+      for (const mod of REQUIRED_MODULES) {
+        if (!mods.includes(mod)) {
+          mods.push(mod);
+          changed = true;
+        }
+      }
+      if (changed) {
         db.prepare("UPDATE business_settings SET enabled_modules = ? WHERE business_id = ?").run(JSON.stringify(mods), row.business_id);
       }
     } catch { /* ignore parse errors */ }

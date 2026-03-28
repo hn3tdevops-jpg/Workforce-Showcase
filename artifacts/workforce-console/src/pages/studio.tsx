@@ -986,7 +986,7 @@ function ValidationPanel({ projectId }: { projectId: string }) {
 // ── Outputs panel ─────────────────────────────────────────────────────────────
 
 type OutputTab = "notes" | "requirements" | "decisions" | "questions";
-type PanelMode = "captured" | "derived" | "validate" | "artifacts";
+type PanelMode = "captured" | "derived" | "validate" | "artifacts" | "insights";
 
 function OutputsPanel({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
@@ -1020,20 +1020,21 @@ function OutputsPanel({ projectId }: { projectId: string }) {
   return (
     <div className="flex flex-col h-full border-l border-border/50 bg-card/30 overflow-hidden">
       {/* header with mode toggle — 2×2 grid */}
-      <div className="shrink-0 px-1.5 py-1.5 border-b border-border/50 grid grid-cols-2 gap-0.5">
+      <div className="shrink-0 px-1.5 py-1.5 border-b border-border/50 flex flex-wrap gap-0.5">
         {(
           [
             { m: "captured",  Icon: FileText,     label: "Captured"  },
             { m: "derived",   Icon: Cpu,          label: "Derived"   },
             { m: "validate",  Icon: ShieldCheck,  label: "Validate"  },
             { m: "artifacts", Icon: PackageOpen,  label: "Artifacts" },
+            { m: "insights",  Icon: Brain,        label: "Insights"  },
           ] as { m: PanelMode; Icon: React.ElementType; label: string }[]
         ).map(({ m, Icon, label }) => (
           <button
             key={m}
             onClick={() => setMode(m)}
             className={cn(
-              "flex items-center justify-center gap-1 py-1 rounded text-[10px] font-medium transition-colors",
+              "flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors flex-1 min-w-[45px]",
               mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -1050,6 +1051,9 @@ function OutputsPanel({ projectId }: { projectId: string }) {
 
       {/* Artifacts panel */}
       {mode === "artifacts" && <ArtifactsPanel projectId={projectId} />}
+
+      {/* Insights panel (Phase 10) */}
+      {mode === "insights" && <InsightsPanel projectId={projectId} />}
 
       {/* Captured tabs — only shown when mode=captured */}
       {mode === "captured" && (
@@ -1300,6 +1304,84 @@ function ChatPanel({ session }: { session: StudioSession }) {
   );
 }
 
+// ── Insights Panel (Phase 10) ─────────────────────────────────────────────────
+
+function InsightsPanel({ projectId }: { projectId: string }) {
+  const { data: outputs } = useQuery({
+    queryKey: ["studio:outputs", projectId],
+    queryFn: () => studioApi.getOutputs(projectId),
+  });
+  const { data: sessions } = useQuery({
+    queryKey: ["studio:sessions", projectId],
+    queryFn: () => studioApi.listSessions(projectId),
+  });
+
+  const totalMessages = sessions?.reduce((s, sess) => s + (sess.message_count ?? 0), 0) ?? 0;
+  const noteCount     = outputs?.notes.length ?? 0;
+  const reqCount      = outputs?.requirements.length ?? 0;
+  const decCount      = outputs?.decisions.length ?? 0;
+  const qCount        = outputs?.questions.length ?? 0;
+
+  const confirmedReqs = outputs?.requirements.filter(r => r.status === "CONFIRMED").length ?? 0;
+  const reqRate = reqCount > 0 ? Math.round((confirmedReqs / reqCount) * 100) : 0;
+
+  const KPI = ({ label, value, sub }: { label: string; value: string | number; sub?: string }) => (
+    <div className="p-2.5 rounded-lg border border-border/40 bg-muted/10">
+      <div className="text-lg font-bold text-primary">{value}</div>
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+      {sub && <div className="text-[9px] text-muted-foreground/60 mt-0.5">{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Project Insights</p>
+
+      <div className="grid grid-cols-2 gap-2">
+        <KPI label="Sessions" value={sessions?.length ?? 0} />
+        <KPI label="Messages" value={totalMessages} />
+        <KPI label="Notes" value={noteCount} />
+        <KPI label="Requirements" value={reqCount} sub={`${confirmedReqs} confirmed`} />
+        <KPI label="Decisions" value={decCount} />
+        <KPI label="Open Questions" value={qCount} />
+      </div>
+
+      {reqCount > 0 && (
+        <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-medium text-primary">Requirement Confirmation</span>
+            <span className="text-[10px] font-bold text-primary">{reqRate}%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+            <div className="h-full rounded-full bg-primary/70" style={{ width: `${reqRate}%` }} />
+          </div>
+        </div>
+      )}
+
+      {(sessions?.length ?? 0) > 0 && (
+        <div>
+          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">Sessions by Activity</p>
+          <div className="space-y-1.5">
+            {[...(sessions ?? [])].sort((a, b) => (b.message_count ?? 0) - (a.message_count ?? 0)).slice(0, 5).map(s => (
+              <div key={s.id} className="flex items-center gap-2 p-1.5 rounded border border-border/30 bg-muted/10">
+                <span className={cn("text-[8px] px-1 py-0.5 rounded-full border font-medium", MODE_COLORS[s.mode] ?? MODE_COLORS.EXPLORE)}>{s.mode}</span>
+                <p className="text-[10px] flex-1 truncate">{s.title ?? "Untitled"}</p>
+                <span className="text-[9px] font-mono text-muted-foreground shrink-0">{s.message_count ?? 0}msg</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {noteCount === 0 && reqCount === 0 && decCount === 0 && (
+        <div className="py-8 text-center text-xs text-muted-foreground/50 italic">
+          No session data yet. Start chatting to generate insights.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Sessions list ─────────────────────────────────────────────────────────────
 
 function SessionsList({ project, onSelect, selectedId }: {
@@ -1308,41 +1390,63 @@ function SessionsList({ project, onSelect, selectedId }: {
   selectedId?: string;
 }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState("");
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ["studio:sessions", project.id],
     queryFn: () => studioApi.listSessions(project.id),
   });
 
+  const filtered = (sessions ?? []).filter(s =>
+    !search || (s.title ?? "Untitled Session").toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col h-full">
-      <div className="shrink-0 px-4 py-3 border-b border-border/50 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold truncate">{project.title}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{project.domain_type ?? project.scope_type}</p>
+      <div className="shrink-0 px-3 py-2.5 border-b border-border/50">
+        <div className="flex items-center justify-between mb-2">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold truncate">{project.title}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{project.domain_type ?? project.scope_type}</p>
+          </div>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-dashed border-primary/30 hover:border-primary/60 shrink-0 ml-2" onClick={() => setShowCreate(true)}>
+            <Plus className="w-3 h-3" />New
+          </Button>
         </div>
-        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-dashed border-primary/30 hover:border-primary/60 shrink-0" onClick={() => setShowCreate(true)}>
-          <Plus className="w-3 h-3" />Session
-        </Button>
+        {(sessions?.length ?? 0) > 2 && (
+          <div className="relative">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search sessions…"
+              className="w-full text-[10px] bg-muted/30 border border-border/40 rounded px-2 py-1 pl-5 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+            />
+            <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
         {isLoading && [1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-        {sessions?.length === 0 && (
+        {!isLoading && filtered.length === 0 && (
           <div className="py-10 text-center">
             <MessageSquare className="w-6 h-6 text-muted-foreground/40 mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">No sessions yet. Start one to begin designing.</p>
-            <Button size="sm" variant="outline" className="mt-3 h-7 text-xs gap-1" onClick={() => setShowCreate(true)}>
-              <Plus className="w-3 h-3" />Start First Session
-            </Button>
+            <p className="text-xs text-muted-foreground">
+              {search ? "No sessions match your search." : "No sessions yet. Start one to begin designing."}
+            </p>
+            {!search && (
+              <Button size="sm" variant="outline" className="mt-3 h-7 text-xs gap-1" onClick={() => setShowCreate(true)}>
+                <Plus className="w-3 h-3" />Start First Session
+              </Button>
+            )}
           </div>
         )}
-        {sessions?.map(s => (
+        {filtered.map(s => (
           <button
             key={s.id}
             onClick={() => onSelect(s)}
             className={cn(
-              "w-full text-left p-3 rounded-lg border transition-all",
+              "w-full text-left p-2.5 rounded-lg border transition-all",
               selectedId === s.id
                 ? "border-primary/30 bg-primary/5"
                 : "border-border/40 bg-muted/10 hover:border-border/60 hover:bg-muted/20"
@@ -1353,7 +1457,7 @@ function SessionsList({ project, onSelect, selectedId }: {
                 {s.mode}
               </span>
               <span className="text-[10px] text-muted-foreground ml-auto">
-                {s.message_count ?? 0} msg{(s.message_count ?? 0) !== 1 ? "s" : ""}
+                {s.message_count ?? 0}msg
               </span>
             </div>
             <p className="text-xs font-medium truncate">{s.title ?? "Untitled Session"}</p>
