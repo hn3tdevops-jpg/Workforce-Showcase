@@ -756,8 +756,8 @@ type Tab  = "schedule" | "marketplace" | "swaps";
 type View = "list" | "calendar";
 
 export default function Shifts() {
-  const { locations } = useLocation();
-  const selectedLocationId: string | undefined = locations?.[0]?.id;
+  const { selectedLocationId: locId } = useLocation();
+  const selectedLocationId: string | undefined = locId ?? undefined;
 
   const { toast } = useToast();
   const [tab,             setTab]             = useState<Tab>("schedule");
