@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { scryptSync, randomBytes } from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.resolve(__dirname, "../../../hospitable.db");
@@ -413,6 +414,45 @@ function seedIfEmpty(db: Database.Database): void {
     ins.run("user-004", "hk.01@silversands.com",      "James",  "Boateng", "Housekeeper",            "staff",      null);
     ins.run("user-005", "hk.02@silversands.com",      "Priya",  "Nair",    "Housekeeper",            "staff",      null);
     ins.run("user-006", "maintenance@silversands.com","Derek",  "Walsh",   "Maintenance Technician", "staff",      null);
+  }
+
+  // ── Seed local login credentials (INSERT OR IGNORE — never overwrites manual resets) ──
+  const SEED_CREDS = [
+    { id: "user-001", email: "manager@silversands.com",    firstName: "Sarah",  lastName: "Okonkwo", role: "owner",      roles: ["owner"],      perms: ["*"] },
+    { id: "user-002", email: "front.desk@silversands.com", firstName: "Marcus", lastName: "Yee",     role: "supervisor", roles: ["supervisor"], perms: ["rooms:write","tasks:write","staff:read"] },
+    { id: "user-003", email: "hk.lead@silversands.com",    firstName: "Amara",  lastName: "Singh",   role: "supervisor", roles: ["supervisor"], perms: ["rooms:write","tasks:write","staff:read"] },
+    { id: "user-004", email: "hk.01@silversands.com",      firstName: "James",  lastName: "Boateng", role: "staff",      roles: ["staff"],      perms: ["tasks:read","tasks:write:own"] },
+    { id: "user-005", email: "hk.02@silversands.com",      firstName: "Priya",  lastName: "Nair",    role: "staff",      roles: ["staff"],      perms: ["tasks:read","tasks:write:own"] },
+    { id: "user-006", email: "maintenance@silversands.com",firstName: "Derek",  lastName: "Walsh",   role: "staff",      roles: ["staff"],      perms: ["tasks:read","tasks:write:own"] },
+  ];
+  const DEFAULT_PWD = "SilverSands2025!";
+  const insertCred = db.prepare(
+    "INSERT OR IGNORE INTO local_credential_overrides (email, pwd_hash, user_json) VALUES (?, ?, ?)"
+  );
+  for (const u of SEED_CREDS) {
+    const already = db.prepare(
+      "SELECT email FROM local_credential_overrides WHERE email = ?"
+    ).get(u.email);
+    if (!already) {
+      const salt = randomBytes(16).toString("hex");
+      const hash = scryptSync(DEFAULT_PWD, salt, 64).toString("hex");
+      const userJson = JSON.stringify({
+        id: u.id,
+        email: u.email,
+        first_name: u.firstName,
+        last_name: u.lastName,
+        is_active: true,
+        business_id: "biz-silver-sands",
+        memberships: [{
+          business_id: "biz-silver-sands",
+          business_name: "Silver Sands Motel",
+          role: u.role,
+        }],
+        roles: u.roles,
+        permissions: u.perms,
+      });
+      insertCred.run(u.email, `${salt}:${hash}`, userJson);
+    }
   }
 
   const existing = db.prepare("SELECT COUNT(*) as count FROM property_buildings").get() as { count: number };
