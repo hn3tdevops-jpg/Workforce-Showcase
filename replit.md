@@ -14,6 +14,7 @@ This project is a pnpm workspace monorepo (TypeScript + pnpm) for **Silver Sands
 | Event Timeline | Live |
 | Users | Live |
 | **Studio** | **Live** — Phases 1–9 complete: chat sessions, structured extraction, derived models (entities/workflows/views/concepts/relationships), validation (10 rules, dismiss), artifact generation (SUMMARY, DESIGN_DOC, SCHEMA_DRAFT, API_SPEC, ROADMAP, COPILOT_PACK — inline view, copy, download) |
+| **Promotions** | **Live** — Phase 11: career ladder (3 tracks × 4 tiers, seeded), promotion criteria per tier, staff progress view, promote/assign tier dialog, recognition feed (6 event types) with give/delete |
 | Settings | Live (owner-only) |
 | Session Debug | Live |
 
