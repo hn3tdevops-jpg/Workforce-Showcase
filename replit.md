@@ -1,6 +1,21 @@
 # Overview
 
-This project is a pnpm workspace monorepo utilizing TypeScript for building a comprehensive Workforce management system. The primary goal is to provide a demo-ready frontend for Workforce that showcases user administration and efficient hospitable room and task operations.
+This project is a pnpm workspace monorepo (TypeScript + pnpm) for **Silver Sands Motel Workforce Operations Console** — a full internal operations product with auth, dashboard, rooms, tasks, assignments, shifts, staff management, property map, and Workforce Studio (AI design workspace).
+
+## Module Status (all integrated)
+| Module | Status |
+|--------|--------|
+| Dashboard | Live |
+| Rooms | Live |
+| Property Map | Live |
+| Tasks | Live |
+| Assignments | Live (local endpoint: `/api/v1/hospitable/assignments/`) |
+| Shifts | Live |
+| Event Timeline | Live |
+| Users | Live |
+| **Studio** | **Live** — 4-panel layout, project/session/chat/outputs |
+| Settings | Live (owner-only) |
+| Session Debug | Live |
 
 The system aims to be an internal operations product, focusing on a clean, operational dashboard feel, responsive design for desktop and tablet, and fast, simple workflows. Key capabilities include managing users, roles, permissions, business context, location context, room views, room status, task management (assignment, status updates), and potentially inspections. The project emphasizes reusability of components and clear business and location context throughout the application.
 

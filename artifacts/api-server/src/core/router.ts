@@ -129,7 +129,7 @@ router.get("/business/:businessId/settings", (req: Request, res: Response) => {
     logo_url: null,
     primary_color: "#6366f1",
     accent_color: "#14b8a6",
-    enabled_modules: '["dashboard","rooms","property-map","tasks","assignments","shifts","timeline","users","session"]',
+    enabled_modules: '["dashboard","rooms","property-map","tasks","assignments","shifts","timeline","users","studio","session"]',
     custom_labels: "{}",
     updated_at: new Date().toISOString(),
   };
@@ -151,7 +151,7 @@ router.patch("/business/:businessId/settings", (req: Request, res: Response) => 
       body.logo_url ?? null,
       body.primary_color ?? "#6366f1",
       body.accent_color ?? "#14b8a6",
-      body.enabled_modules ?? '["dashboard","rooms","property-map","tasks","assignments","shifts","timeline","users","session"]',
+      body.enabled_modules ?? '["dashboard","rooms","property-map","tasks","assignments","shifts","timeline","users","studio","session"]',
       body.custom_labels ?? "{}"
     );
   } else {

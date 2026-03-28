@@ -262,6 +262,83 @@ function initSchema(db: Database.Database): void {
       density              TEXT NOT NULL DEFAULT 'comfortable',
       updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS studio_projects (
+      id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      business_id TEXT,
+      location_id TEXT,
+      scope_type  TEXT NOT NULL DEFAULT 'BUSINESS',
+      title       TEXT NOT NULL,
+      summary     TEXT,
+      domain_type TEXT,
+      status      TEXT NOT NULL DEFAULT 'ACTIVE',
+      created_by  TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_sessions (
+      id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      title      TEXT,
+      mode       TEXT NOT NULL DEFAULT 'EXPLORE',
+      started_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_messages (
+      id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      session_id TEXT NOT NULL REFERENCES studio_sessions(id) ON DELETE CASCADE,
+      role       TEXT NOT NULL DEFAULT 'USER',
+      content    TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_notes (
+      id                TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id        TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      note_type         TEXT NOT NULL DEFAULT 'SUMMARY',
+      title             TEXT NOT NULL,
+      body              TEXT NOT NULL,
+      status            TEXT NOT NULL DEFAULT 'INFERRED',
+      source_message_id TEXT,
+      created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_requirements (
+      id                TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id        TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      requirement_type  TEXT NOT NULL DEFAULT 'FUNCTIONAL',
+      priority          TEXT NOT NULL DEFAULT 'MEDIUM',
+      statement         TEXT NOT NULL,
+      rationale         TEXT,
+      status            TEXT NOT NULL DEFAULT 'DRAFT',
+      source_message_id TEXT,
+      created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_decisions (
+      id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id     TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      title          TEXT NOT NULL,
+      decision_text  TEXT NOT NULL,
+      rationale      TEXT,
+      decided_by     TEXT,
+      created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS studio_open_questions (
+      id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      project_id      TEXT NOT NULL REFERENCES studio_projects(id) ON DELETE CASCADE,
+      question        TEXT NOT NULL,
+      why_it_matters  TEXT,
+      severity        TEXT NOT NULL DEFAULT 'MEDIUM',
+      resolved_at     TEXT,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -392,6 +469,20 @@ const B2F2: RoomSeed[] = [
 ];
 
 function seedIfEmpty(db: Database.Database): void {
+  // ── Migration: ensure "studio" is in enabled_modules for all business settings ──
+  const settingsRows = db.prepare("SELECT business_id, enabled_modules FROM business_settings").all() as { business_id: string; enabled_modules: string }[];
+  for (const row of settingsRows) {
+    try {
+      const mods: string[] = JSON.parse(row.enabled_modules);
+      if (!mods.includes("studio")) {
+        const idx = mods.indexOf("session");
+        if (idx >= 0) mods.splice(idx, 0, "studio");
+        else mods.push("studio");
+        db.prepare("UPDATE business_settings SET enabled_modules = ? WHERE business_id = ?").run(JSON.stringify(mods), row.business_id);
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
   // ── Seed locations ────────────────────────────────────────────────────────
   const locCount = (db.prepare("SELECT COUNT(*) as n FROM local_locations").get() as { n: number }).n;
   if (locCount === 0) {

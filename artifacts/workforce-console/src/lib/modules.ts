@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, DoorOpen, CheckSquare, Users, CalendarDays, Activity,
   Boxes, ShieldAlert, ClipboardList, BarChart3, Package, Home,
-  Building2, Wrench, Settings, Shield,
+  Building2, Wrench, Settings, Shield, Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -14,6 +14,7 @@ export type ModuleId =
   | "shifts"
   | "timeline"
   | "users"
+  | "studio"
   | "session"
   | "analytics"
   | "inventory"
@@ -43,6 +44,7 @@ export const ALL_MODULES: ModuleDefinition[] = [
   { id: "shifts",       label: "Shifts",          icon: CalendarDays,    path: "/app/shifts",       group: "operations" },
   { id: "timeline",     label: "Event Timeline",  icon: Activity,        path: "/app/timeline",     group: "operations" },
   { id: "users",        label: "Users",           icon: Users,           path: "/app/users",        group: "people" },
+  { id: "studio",       label: "Studio",          icon: Sparkles,        path: "/app/studio",       group: "people" },
   { id: "analytics",    label: "Analytics",       icon: BarChart3,       path: "/app/analytics",    group: "admin",   comingSoon: true },
   { id: "inventory",    label: "Supply Pars",     icon: Package,         path: "/app/inventory",    group: "admin",   comingSoon: true },
   { id: "inspections",  label: "Inspections",     icon: Building2,       path: "/app/inspections",  group: "admin",   comingSoon: true },
@@ -51,7 +53,7 @@ export const ALL_MODULES: ModuleDefinition[] = [
 
 export const DEFAULT_ENABLED_MODULES: ModuleId[] = [
   "dashboard", "rooms", "property-map", "tasks", "assignments",
-  "shifts", "timeline", "users", "session",
+  "shifts", "timeline", "users", "studio", "session",
 ];
 
 export function getModulesByGroup(

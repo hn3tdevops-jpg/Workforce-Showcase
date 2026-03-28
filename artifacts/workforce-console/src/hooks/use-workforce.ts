@@ -69,7 +69,7 @@ export function useTasks(skip = 0, limit = 100) {
 export function useAssignments(skip = 0, limit = 100) {
   return useQuery({
     queryKey: ["/assignments", skip, limit],
-    queryFn: () => fetchApi<Assignment[]>(`/assignments/?skip=${skip}&limit=${limit}`),
+    queryFn: () => fetchApi<Assignment[]>(`/hospitable/assignments/?skip=${skip}&limit=${limit}`),
   });
 }
 

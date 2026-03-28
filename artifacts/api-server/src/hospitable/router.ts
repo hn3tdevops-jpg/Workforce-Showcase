@@ -517,6 +517,38 @@ router.get("/dashboard/housekeeping-board", (req: Request, res: Response) => {
   })));
 });
 
+// ── Assignments (derived from shift_assignees) ─────────────────────────────
+
+router.get("/assignments/", (req: Request, res: Response) => {
+  const db = getDb();
+  const { location_id, skip = "0", limit = "100" } = req.query;
+
+  let query = `
+    SELECT
+      (sa.shift_id || '-' || sa.user_id) AS id,
+      sa.shift_id,
+      sa.user_id        AS employee_id,
+      (ls.first_name || ' ' || ls.last_name) AS employee_name,
+      s.role,
+      s.status,
+      sa.assigned_at    AS created_at
+    FROM shift_assignees sa
+    JOIN shifts s ON s.id = sa.shift_id
+    LEFT JOIN local_staff ls ON ls.user_id = sa.user_id
+  `;
+
+  const params: unknown[] = [];
+  if (location_id) {
+    query += " WHERE s.location_id = ?";
+    params.push(location_id);
+  }
+  query += ` ORDER BY sa.assigned_at DESC LIMIT ? OFFSET ?`;
+  params.push(+limit, +skip);
+
+  const rows = db.prepare(query).all(...params) as any[];
+  ok(res, rows);
+});
+
 router.get("/dashboard/maintenance-board", (req: Request, res: Response) => {
   const db = getDb();
   const { location_id } = req.query;
