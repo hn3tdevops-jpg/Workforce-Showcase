@@ -33,12 +33,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
-<<<<<<< HEAD
-=======
 # Allow an origin regex (env override supported) to permit Manus preview hosts like *.manus.computer
 _allow_origin_regex = os.environ.get("CORS_ALLOW_ORIGIN_REGEX", r"https://.*\\.manus\\.computer")
 
->>>>>>> 06fda79 (Add Manus preview origin and allow_origin_regex for *.manus.computer (env override via CORS_ALLOW_ORIGIN_REGEX)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
