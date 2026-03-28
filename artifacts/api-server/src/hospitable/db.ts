@@ -415,6 +415,120 @@ function initSchema(db: Database.Database): void {
       UNIQUE(project_id, rule_id, subject_id)
     );
 
+    -- ── Workforce Identity / Employment (Identity Package) ──────────────────
+
+    CREATE TABLE IF NOT EXISTS employee_profiles (
+      id                       TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      business_id              TEXT NOT NULL DEFAULT 'biz-silver-sands',
+      location_id              TEXT REFERENCES local_locations(id),
+      staff_id                 TEXT REFERENCES local_staff(id),
+      employee_code            TEXT,
+      legal_first_name         TEXT NOT NULL,
+      legal_last_name          TEXT NOT NULL,
+      display_name             TEXT,
+      work_email               TEXT,
+      work_phone               TEXT,
+      employment_status        TEXT NOT NULL DEFAULT 'ACTIVE',
+      employment_type          TEXT NOT NULL DEFAULT 'FULL_TIME',
+      hire_date                TEXT,
+      termination_date         TEXT,
+      department               TEXT,
+      manager_employee_id      TEXT REFERENCES employee_profiles(id),
+      job_title                TEXT,
+      schedule_eligible        INTEGER NOT NULL DEFAULT 1,
+      internal_notes           TEXT,
+      is_active                INTEGER NOT NULL DEFAULT 1,
+      created_by_user_id       TEXT,
+      updated_by_user_id       TEXT,
+      created_at               TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at               TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(business_id, employee_code)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ep_business    ON employee_profiles(business_id);
+    CREATE INDEX IF NOT EXISTS idx_ep_staff       ON employee_profiles(staff_id);
+    CREATE INDEX IF NOT EXISTS idx_ep_status      ON employee_profiles(employment_status);
+    CREATE INDEX IF NOT EXISTS idx_ep_location    ON employee_profiles(location_id);
+
+    CREATE TABLE IF NOT EXISTS user_employee_links (
+      id                   TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      user_id              TEXT NOT NULL,
+      employee_profile_id  TEXT NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+      link_status          TEXT NOT NULL DEFAULT 'PENDING',
+      is_primary           INTEGER NOT NULL DEFAULT 1,
+      invited_by_user_id   TEXT,
+      activated_by_user_id TEXT,
+      ended_by_user_id     TEXT,
+      linked_at            TEXT,
+      unlinked_at          TEXT,
+      ended_reason         TEXT,
+      created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, employee_profile_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_uel_user     ON user_employee_links(user_id);
+    CREATE INDEX IF NOT EXISTS idx_uel_ep       ON user_employee_links(employee_profile_id);
+    CREATE INDEX IF NOT EXISTS idx_uel_status   ON user_employee_links(link_status);
+
+    CREATE TABLE IF NOT EXISTS employee_role_assignments (
+      id                   TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      employee_profile_id  TEXT NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+      business_id          TEXT NOT NULL DEFAULT 'biz-silver-sands',
+      scope_type           TEXT NOT NULL DEFAULT 'BUSINESS',
+      location_id          TEXT REFERENCES local_locations(id),
+      role_name            TEXT NOT NULL,
+      permissions          TEXT NOT NULL DEFAULT '[]',
+      assigned_by_user_id  TEXT,
+      is_active            INTEGER NOT NULL DEFAULT 1,
+      created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_era_ep       ON employee_role_assignments(employee_profile_id);
+    CREATE INDEX IF NOT EXISTS idx_era_biz      ON employee_role_assignments(business_id);
+    CREATE INDEX IF NOT EXISTS idx_era_active   ON employee_role_assignments(is_active);
+
+    CREATE TABLE IF NOT EXISTS employee_link_invitations (
+      id                   TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      business_id          TEXT NOT NULL DEFAULT 'biz-silver-sands',
+      employee_profile_id  TEXT NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+      target_email         TEXT,
+      invite_token         TEXT UNIQUE,
+      status               TEXT NOT NULL DEFAULT 'PENDING',
+      expires_at           TEXT,
+      sent_at              TEXT,
+      claimed_at           TEXT,
+      created_by_user_id   TEXT,
+      claimed_by_user_id   TEXT,
+      completed_link_id    TEXT REFERENCES user_employee_links(id),
+      created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS workforce_audit_events (
+      id                          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      event_key                   TEXT NOT NULL,
+      actor_type                  TEXT NOT NULL DEFAULT 'USER',
+      actor_user_id               TEXT,
+      actor_employee_profile_id   TEXT,
+      target_type                 TEXT NOT NULL,
+      target_id                   TEXT NOT NULL,
+      business_id                 TEXT NOT NULL DEFAULT 'biz-silver-sands',
+      location_id                 TEXT,
+      related_user_id             TEXT,
+      related_employee_profile_id TEXT,
+      reason                      TEXT,
+      before_json                 TEXT,
+      after_json                  TEXT,
+      metadata_json               TEXT,
+      created_at                  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_wae_event    ON workforce_audit_events(event_key);
+    CREATE INDEX IF NOT EXISTS idx_wae_target   ON workforce_audit_events(target_id);
+    CREATE INDEX IF NOT EXISTS idx_wae_biz      ON workforce_audit_events(business_id);
+    CREATE INDEX IF NOT EXISTS idx_wae_created  ON workforce_audit_events(created_at);
+
     -- ── Promotions (Phase 11) ───────────────────────────────────────────────
 
     CREATE TABLE IF NOT EXISTS promotion_tiers (
@@ -598,6 +712,103 @@ const B2F2: RoomSeed[] = [
   { num: "68", bedType: "QQ", petPolicy: "no_pets", hkStatus: "dirty" },
 ];
 
+function seedWorkforceIdentity(db: Database.Database): void {
+  const epCount = (db.prepare("SELECT COUNT(*) as n FROM employee_profiles").get() as { n: number }).n;
+  if (epCount > 0) return;
+
+  const staff = db.prepare("SELECT * FROM local_staff").all() as {
+    id: string; email: string; first_name: string; last_name: string;
+    job_title: string | null; role: string; phone: string | null; hire_date: string | null;
+  }[];
+
+  const ROLE_PERMS: Record<string, string[]> = {
+    owner:      ["*"],
+    admin:      ["rooms:read","rooms:write","tasks:read","tasks:write","staff:read","staff:write","shifts:read","shifts:write"],
+    supervisor: ["rooms:write","tasks:write","staff:read","shifts:read","shifts:write"],
+    staff:      ["tasks:read","tasks:write:own","shifts:read"],
+  };
+
+  const DEPT: Record<string, string> = {
+    "General Manager":        "Management",
+    "Front Desk Supervisor":  "Front Desk",
+    "Housekeeping Lead":      "Housekeeping",
+    "Housekeeper":            "Housekeeping",
+    "Maintenance Technician": "Maintenance",
+  };
+
+  const insertEP = db.prepare(`
+    INSERT OR IGNORE INTO employee_profiles
+      (id, business_id, staff_id, employee_code, legal_first_name, legal_last_name,
+       display_name, work_email, work_phone, employment_status, employment_type,
+       hire_date, department, job_title, schedule_eligible, is_active, created_by_user_id)
+    VALUES (?, 'biz-silver-sands', ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', 'FULL_TIME', ?, ?, ?, 1, 1, 'system')
+  `);
+
+  const insertLink = db.prepare(`
+    INSERT OR IGNORE INTO user_employee_links
+      (id, user_id, employee_profile_id, link_status, is_primary,
+       activated_by_user_id, linked_at)
+    VALUES (?, ?, ?, 'ACTIVE', 1, 'system', datetime('now'))
+  `);
+
+  const insertAssignment = db.prepare(`
+    INSERT OR IGNORE INTO employee_role_assignments
+      (id, employee_profile_id, business_id, scope_type, role_name, permissions,
+       assigned_by_user_id, is_active)
+    VALUES (?, ?, 'biz-silver-sands', 'BUSINESS', ?, ?, 'system', 1)
+  `);
+
+  const insertAudit = db.prepare(`
+    INSERT INTO workforce_audit_events
+      (id, event_key, actor_type, actor_user_id, target_type, target_id,
+       business_id, after_json, metadata_json)
+    VALUES (?, ?, 'SYSTEM', 'system', ?, ?, 'biz-silver-sands', ?, ?)
+  `);
+
+  for (let i = 0; i < staff.length; i++) {
+    const s = staff[i];
+    const epId   = `ep-${s.id}`;
+    const linkId = `lnk-${s.id}`;
+    const eraId  = `era-${s.id}`;
+    const code   = `SS-${String(i + 1).padStart(3, "0")}`;
+    const dept   = DEPT[s.job_title ?? ""] ?? "Operations";
+    const perms  = ROLE_PERMS[s.role] ?? ROLE_PERMS.staff;
+
+    insertEP.run(
+      epId, s.id, code,
+      s.first_name, s.last_name,
+      `${s.first_name} ${s.last_name}`,
+      s.email, s.phone,
+      s.hire_date ?? null,
+      dept, s.job_title,
+    );
+
+    insertLink.run(linkId, s.id, epId);
+
+    insertAssignment.run(eraId, epId, s.role, JSON.stringify(perms));
+
+    // audit: profile created
+    insertAudit.run(
+      `aud-ep-${s.id}`,
+      "employee_profile.create",
+      "employee_profile",
+      epId,
+      JSON.stringify({ employment_status: "ACTIVE", role: s.role }),
+      JSON.stringify({ source: "seed", staff_id: s.id }),
+    );
+
+    // audit: link activated
+    insertAudit.run(
+      `aud-lnk-${s.id}`,
+      "user_employee_link.activate",
+      "user_employee_link",
+      linkId,
+      JSON.stringify({ link_status: "ACTIVE" }),
+      JSON.stringify({ user_id: s.id, employee_profile_id: epId }),
+    );
+  }
+}
+
 function seedIfEmpty(db: Database.Database): void {
   // ── Migration: ensure "studio" is in enabled_modules for all business settings ──
   const settingsRows = db.prepare("SELECT business_id, enabled_modules FROM business_settings").all() as { business_id: string; enabled_modules: string }[];
@@ -675,6 +886,9 @@ function seedIfEmpty(db: Database.Database): void {
       insertCred.run(u.email, `${salt}:${hash}`, userJson);
     }
   }
+
+  // ── Seed employee profiles + links + role assignments (idempotent) ──────
+  seedWorkforceIdentity(db);
 
   const existing = db.prepare("SELECT COUNT(*) as count FROM property_buildings").get() as { count: number };
   if (existing.count > 0) return;

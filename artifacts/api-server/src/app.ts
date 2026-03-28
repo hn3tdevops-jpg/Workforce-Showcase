@@ -8,6 +8,7 @@ import coreRouter from "./core/router.js";
 import schedulingRouter from "./scheduling/router.js";
 import studioRouter from "./studio/router.js";
 import promotionsRouter, { seedPromotionTiers } from "./promotions/router.js";
+import workforceRouter from "./workforce/router.js";
 import { logger } from "./lib/logger.js";
 
 const PA_BASE = "https://hn3t.pythonanywhere.com";
@@ -44,6 +45,7 @@ app.use("/api/v1", coreRouter);
 app.use("/api/v1", schedulingRouter);
 app.use("/api/v1/studio", studioRouter);
 app.use("/api/v1/promotions", promotionsRouter);
+app.use("/api/v1/workforce", workforceRouter);
 
 // Seed promotion tiers on startup (idempotent)
 seedPromotionTiers();

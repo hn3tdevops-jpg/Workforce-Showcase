@@ -22,6 +22,7 @@ import PropertyMap from "@/pages/property-map";
 import Settings from "@/pages/settings";
 import Studio from "@/pages/studio";
 import Promotions from "@/pages/promotions";
+import Employees from "@/pages/employees";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -57,6 +58,7 @@ function ProtectedRoutes() {
               <Route path="/app/users"        component={() => <PageContent><Users /></PageContent>} />
               <Route path="/app/studio"       component={Studio} />
               <Route path="/app/promotions"  component={() => <PageContent><Promotions /></PageContent>} />
+              <Route path="/app/employees"  component={() => <PageContent><Employees /></PageContent>} />
               <Route path="/app/session"      component={() => <PageContent><SessionDebug /></PageContent>} />
               <Route path="/app/timeline"     component={Timeline} />
               <Route path="/app/property-map" component={PropertyMap} />

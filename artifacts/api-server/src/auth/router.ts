@@ -105,6 +105,90 @@ router.get("/me", async (req, res) => {
   res.status(upstreamRes.status).send(text);
 });
 
+router.get("/me/access-context", async (req, res) => {
+  const authHeader = req.headers.authorization ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  let userId: string | null = null;
+
+  if (token) {
+    const db = getDb();
+    const row = db.prepare("SELECT user_json FROM local_sessions WHERE token = ?").get(token) as { user_json: string } | undefined;
+    if (row) {
+      try { userId = JSON.parse(row.user_json).id; } catch { /* ignore */ }
+    }
+  }
+
+  if (!userId) {
+    // Try upstream user then resolve locally
+    const upstreamRes = await fetch(`${PA_BASE}/api/v1/auth/me`, {
+      headers: authHeader ? { authorization: authHeader } : {},
+    });
+    if (upstreamRes.ok) {
+      const user = await upstreamRes.json() as { id?: string };
+      userId = user.id ?? null;
+    }
+  }
+
+  if (!userId) {
+    res.status(401).json({ detail: "Not authenticated" });
+    return;
+  }
+
+  const db = getDb();
+  const activeLinks = db.prepare(`
+    SELECT uel.*, ep.employment_status, ep.is_active AS ep_is_active,
+      ep.legal_first_name, ep.legal_last_name, ep.job_title, ep.department,
+      ep.employee_code, ep.business_id
+    FROM user_employee_links uel
+    JOIN employee_profiles ep ON ep.id = uel.employee_profile_id
+    WHERE uel.user_id = ? AND uel.link_status = 'ACTIVE'
+      AND ep.is_active = 1 AND ep.employment_status = 'ACTIVE'
+  `).all(userId) as any[];
+
+  const scopes: any[] = [];
+  for (const link of activeLinks) {
+    const assignments = db.prepare(`
+      SELECT era.*, ll.name AS location_name
+      FROM employee_role_assignments era
+      LEFT JOIN local_locations ll ON ll.id = era.location_id
+      WHERE era.employee_profile_id = ? AND era.is_active = 1
+    `).all(link.employee_profile_id) as any[];
+
+    const allPerms = new Set<string>();
+    for (const a of assignments) {
+      try { (JSON.parse(a.permissions) as string[]).forEach(p => allPerms.add(p)); } catch { /* ignore */ }
+    }
+
+    scopes.push({
+      employee_profile_id: link.employee_profile_id,
+      link_id:             link.id,
+      link_status:         link.link_status,
+      business_id:         link.business_id,
+      employee_name:       `${link.legal_first_name} ${link.legal_last_name}`,
+      job_title:           link.job_title,
+      department:          link.department,
+      employee_code:       link.employee_code,
+      employment_status:   link.employment_status,
+      assignments:         assignments.map((a: any) => ({
+        id: a.id, role_name: a.role_name, scope_type: a.scope_type,
+        location_id: a.location_id, location_name: a.location_name,
+        permissions: (() => { try { return JSON.parse(a.permissions); } catch { return []; } })(),
+      })),
+      effective_permissions: [...allPerms],
+      is_super_admin: allPerms.has("*"),
+    });
+  }
+
+  res.json({
+    user_id: userId,
+    has_access: scopes.length > 0,
+    active_scope_count: scopes.length,
+    scopes,
+    resolved_at: new Date().toISOString(),
+  });
+});
+
 router.post("/reset", (req, res) => {
   const { email, new_password } = req.body ?? {};
   if (!email || !new_password) {

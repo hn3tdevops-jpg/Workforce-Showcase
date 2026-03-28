@@ -15,6 +15,7 @@ This project is a pnpm workspace monorepo (TypeScript + pnpm) for **Silver Sands
 | Users | Live |
 | **Studio** | **Live** — Phases 1–9 complete: chat sessions, structured extraction, derived models (entities/workflows/views/concepts/relationships), validation (10 rules, dismiss), artifact generation (SUMMARY, DESIGN_DOC, SCHEMA_DRAFT, API_SPEC, ROADMAP, COPILOT_PACK — inline view, copy, download) |
 | **Promotions** | **Live** — Phase 11: career ladder (3 tracks × 4 tiers, seeded), promotion criteria per tier, staff progress view, promote/assign tier dialog, recognition feed (6 event types) with give/delete |
+| **Employees** | **Live** — Workforce Identity Package: 5 new DB tables (employee_profiles, user_employee_links, employee_role_assignments, employee_link_invitations, workforce_audit_events), 6 seeded employee profiles (one per staff user), full lifecycle transitions (ACTIVE/ON_LEAVE/SUSPENDED/TERMINATED/ARCHIVED/PENDING_HIRE), link lifecycle (ACTIVE/SUSPENDED/REVOKED/ENDED), scoped RBAC role assignments, audit log, access-context resolver. 4-tab UI: Profiles | User Links | Role Assignments | Audit Log. Routes: /api/v1/workforce/* (local:8080). |
 | Settings | Live (owner-only) |
 | Session Debug | Live |
 
