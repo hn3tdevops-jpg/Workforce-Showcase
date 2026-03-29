@@ -82,15 +82,3 @@ try:
 except Exception as e:
     print('console error', e)
 PY
-
-# Commit and push the workflow file
-if git rev-parse --verify HEAD >/dev/null 2>&1; then
-  git add .github/workflows/deploy-to-pythonanywhere.yml
-  git commit -m "ci: add PythonAnywhere deploy workflow\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>" || echo "no-changes-to-commit"
-  git push origin main || echo "push-failed"
-else
-  # create initial commit if needed
-  git add -A
-  git commit -m "chore: initial commit with workflow\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>" || echo "commit-failed"
-  git push -u origin main || echo "push-failed"
-fi
