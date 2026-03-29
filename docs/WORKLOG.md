@@ -1,5 +1,9 @@
 # Worklog
 
+## 2026-03-29
+- Created checkpoint tag foundation-v0.1 and confirmed remote acceptance.
+- Marked Phase 1 (Tenant and RBAC core) as started.
+
 ## 2026-03-16
 - Created repo-base scaffold for Workforce.
 - Added planning, control, Copilot, and recovery files.

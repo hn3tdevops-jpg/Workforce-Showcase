@@ -14,6 +14,8 @@ Deliverables:
 ## Phase 1 — Tenant and RBAC core
 Goal: guarantee tenant isolation and scope-aware permissions.
 
+Status: In progress (2026-03-29)
+
 Deliverables:
 - tenant/business/location model
 - memberships
