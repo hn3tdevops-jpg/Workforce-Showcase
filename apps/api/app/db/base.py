@@ -32,8 +32,15 @@ def import_models() -> None:
     If that fails, fall back to importing named core and domain model helpers.
     """
     try:
+        # Only import modules that live under the canonical apps/api/app models path.
+        # Avoid importing models from legacy packages by restricting imports to files
+        # contained within apps/api/app/models. This prevents duplicate metadata
+        # registration when legacy package models are present.
         pkg = importlib.import_module("apps.api.app.models")
         for p in pkg.__path__:
+            # Only proceed if this path is inside the repository's apps/api/app/models
+            if "apps/api/app/models" not in p.replace("\\", "/"):
+                continue
             try:
                 for fn in sorted(__import__("os").listdir(p)):
                     if not fn.endswith(".py") or fn.startswith("__"):
