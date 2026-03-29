@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Settings, Palette, Puzzle, User, Moon, Sun, Monitor, Shield } from "lucide-react";
+import SuperadminConsole from "./settings/superadmin-console";
 import { useAuth } from "@/lib/auth-context";
 import { useBusinessSettings } from "@/lib/business-settings-context";
 import { useUserPreferences } from "@/lib/user-preferences-context";
@@ -410,16 +411,7 @@ export default function SettingsPage() {
 
         {isSuperAdmin() && (
           <TabsContent value="superadmin" className="mt-6">
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
-              <Shield className="w-8 h-8 text-amber-400 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-amber-400">Platform Management</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  The superadmin platform management area is coming next. It will include
-                  business management, user provisioning, audit logs, and platform-wide settings.
-                </p>
-              </div>
-            </div>
+            <SuperadminConsole />
           </TabsContent>
         )}
       </Tabs>
