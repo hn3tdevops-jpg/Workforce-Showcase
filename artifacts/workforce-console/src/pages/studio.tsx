@@ -1475,70 +1475,456 @@ function SessionsList({ project, onSelect, selectedId }: {
 
 // ── Project list sidebar ──────────────────────────────────────────────────────
 
+// ── Relative time helper ──────────────────────────────────────────────────────
+
+function relTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 2) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── Projects Table ────────────────────────────────────────────────────────────
+
+type ProjSortField = "title" | "session_count" | "message_count" | "updated_at" | "status";
+
+function ProjectsTable({
+  selected,
+  onSelect,
+}: {
+  selected: StudioProject | null;
+  onSelect: (p: StudioProject) => void;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<ProjSortField>("updated_at");
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ["studio:projects"],
+    queryFn: studioApi.listProjects,
+  });
+
+  const filtered = projects.filter(p =>
+    !search ||
+    p.title.toLowerCase().includes(search.toLowerCase()) ||
+    (p.domain_type ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const sorted = [...filtered].sort((a, b) => {
+    const av: unknown = sortField === "session_count" ? (a.session_count ?? 0)
+      : sortField === "message_count" ? (a.message_count ?? 0)
+      : a[sortField as keyof StudioProject] ?? "";
+    const bv: unknown = sortField === "session_count" ? (b.session_count ?? 0)
+      : sortField === "message_count" ? (b.message_count ?? 0)
+      : b[sortField as keyof StudioProject] ?? "";
+    if (av < bv) return sortAsc ? -1 : 1;
+    if (av > bv) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const toggleSort = (field: ProjSortField) => {
+    if (sortField === field) setSortAsc(a => !a);
+    else { setSortField(field); setSortAsc(true); }
+  };
+
+  const ColHeader = ({
+    label, field, className = "",
+  }: { label: string; field?: ProjSortField; className?: string }) => (
+    <th
+      onClick={() => field && toggleSort(field)}
+      className={cn(
+        "text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground py-2.5 px-3 border-b border-border/50 whitespace-nowrap bg-background/80",
+        field && "cursor-pointer select-none hover:text-foreground",
+        className
+      )}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {field && sortField === field && (
+          <span className="text-primary text-[9px]">{sortAsc ? "▲" : "▼"}</span>
+        )}
+      </span>
+    </th>
+  );
+
+  return (
+    <div className="flex flex-col h-full bg-card/10 overflow-hidden">
+      {/* Toolbar */}
+      <div className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-border/50 bg-background/60">
+        <Sparkles className="w-4 h-4 text-primary shrink-0" />
+        <span className="text-sm font-semibold">Workforce Studio</span>
+        <span className="text-muted-foreground/30 text-sm">·</span>
+        <span className="text-xs text-muted-foreground">{projects.length} project{projects.length !== 1 ? "s" : ""}</span>
+        <div className="flex-1" />
+        <div className="relative">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search projects…"
+            className="text-xs bg-muted/30 border border-border/40 rounded-md px-3 py-1.5 pl-7 w-48 focus:outline-none focus:border-primary/50"
+          />
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs gap-1.5 border-primary/20 text-primary hover:bg-primary/10"
+          onClick={() => setShowCreate(true)}
+        >
+          <Plus className="w-3.5 h-3.5" /> New Project
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
+        <table className="w-full border-collapse">
+          <thead className="sticky top-0 z-10">
+            <tr>
+              <ColHeader label="Project" field="title" className="pl-5 w-[38%]" />
+              <ColHeader label="Domain" className="w-[14%]" />
+              <ColHeader label="Sessions" field="session_count" className="w-[10%]" />
+              <ColHeader label="Messages" field="message_count" className="w-[10%]" />
+              <ColHeader label="Status" field="status" className="w-[12%]" />
+              <ColHeader label="Updated" field="updated_at" className="w-[13%]" />
+              <th className="w-[3%] border-b border-border/50 bg-background/80" />
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && [...Array(4)].map((_, i) => (
+              <tr key={i} className="border-b border-border/20">
+                {[38, 14, 10, 10, 12, 13, 3].map((w, j) => (
+                  <td key={j} className="px-3 py-3.5">
+                    <Skeleton className="h-3.5 rounded" style={{ width: `${60 + j * 5}%` }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {!isLoading && sorted.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center py-20 text-muted-foreground">
+                  <FolderOpen className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">{search ? "No projects match your search." : "No projects yet."}</p>
+                  {!search && (
+                    <Button size="sm" variant="outline" className="mt-4 gap-1.5" onClick={() => setShowCreate(true)}>
+                      <Plus className="w-3.5 h-3.5" /> Create your first project
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            )}
+            {sorted.map(p => {
+              const isSelected = selected?.id === p.id;
+              return (
+                <tr
+                  key={p.id}
+                  onClick={() => onSelect(p)}
+                  className={cn(
+                    "cursor-pointer border-b border-border/25 transition-colors group",
+                    isSelected
+                      ? "bg-primary/5"
+                      : "hover:bg-muted/15"
+                  )}
+                >
+                  <td className="px-3 py-2.5 pl-5">
+                    <div className="flex items-center gap-2.5">
+                      {isSelected
+                        ? <ChevronRight className="w-3 h-3 text-primary shrink-0" />
+                        : <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", p.status === "ACTIVE" ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+                      }
+                      <div className="min-w-0">
+                        <p className={cn("text-xs font-medium truncate", isSelected && "text-primary")}>{p.title}</p>
+                        {p.summary && (
+                          <p className="text-[10px] text-muted-foreground truncate mt-0.5 max-w-[260px]">{p.summary}</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {p.domain_type
+                      ? <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">{p.domain_type.replace(/_/g, " ")}</span>
+                      : <span className="text-muted-foreground/30 text-xs">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="text-xs font-mono text-muted-foreground">{p.session_count ?? 0}</span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="text-xs font-mono text-muted-foreground">{p.message_count ?? 0}</span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={cn(
+                      "text-[10px] font-mono px-1.5 py-0.5 rounded border inline-block",
+                      p.status === "ACTIVE"   ? "text-emerald-400 bg-emerald-950/40 border-emerald-800/40"
+                      : p.status === "ARCHIVED" ? "text-zinc-500 bg-zinc-900/40 border-zinc-700/40"
+                      : "text-muted-foreground bg-muted/20 border-border/40"
+                    )}>
+                      {p.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="text-xs text-muted-foreground">{relTime(p.updated_at)}</span>
+                  </td>
+                  <td className="px-3 py-2.5 pr-4">
+                    <ChevronRight className={cn("w-3.5 h-3.5 transition-colors",
+                      isSelected ? "text-primary" : "text-muted-foreground/30 group-hover:text-muted-foreground/70"
+                    )} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <CreateProjectDialog open={showCreate} onClose={() => setShowCreate(false)} />
+    </div>
+  );
+}
+
+// ── Sessions Table (tabular sub-view) ─────────────────────────────────────────
+
+type SessSortField = "updated_at" | "message_count" | "mode" | "title";
+
+function SessionsTable({
+  project,
+  selectedId,
+  onSelect,
+}: {
+  project: StudioProject;
+  selectedId?: string;
+  onSelect: (s: StudioSession) => void;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<SessSortField>("updated_at");
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const { data: sessions = [], isLoading } = useQuery({
+    queryKey: ["studio:sessions", project.id],
+    queryFn: () => studioApi.listSessions(project.id),
+  });
+
+  const filtered = sessions.filter(s =>
+    !search || (s.title ?? "Untitled Session").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const sorted = [...filtered].sort((a, b) => {
+    const av: unknown = sortField === "message_count" ? (a.message_count ?? 0)
+      : sortField === "updated_at" ? a.updated_at
+      : sortField === "mode" ? a.mode
+      : (a.title ?? "");
+    const bv: unknown = sortField === "message_count" ? (b.message_count ?? 0)
+      : sortField === "updated_at" ? b.updated_at
+      : sortField === "mode" ? b.mode
+      : (b.title ?? "");
+    if (av < bv) return sortAsc ? -1 : 1;
+    if (av > bv) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  const toggleSort = (field: SessSortField) => {
+    if (sortField === field) setSortAsc(a => !a);
+    else { setSortField(field); setSortAsc(false); }
+  };
+
+  const ColHeader = ({ label, field, className = "" }: { label: string; field?: SessSortField; className?: string }) => (
+    <th
+      onClick={() => field && toggleSort(field)}
+      className={cn(
+        "text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground py-2 px-3 border-b border-border/40 whitespace-nowrap bg-muted/10",
+        field && "cursor-pointer select-none hover:text-foreground",
+        className
+      )}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {field && sortField === field && (
+          <span className="text-primary text-[9px]">{sortAsc ? "▲" : "▼"}</span>
+        )}
+      </span>
+    </th>
+  );
+
+  return (
+    <div className="flex flex-col border-t-2 border-primary/20 bg-primary/2">
+      {/* Sub-header */}
+      <div className="shrink-0 flex items-center gap-2.5 px-5 py-2.5 border-b border-border/30 bg-primary/5">
+        <MessageSquare className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+        <span className="text-xs font-semibold text-primary/80 truncate">{project.title}</span>
+        <span className="text-primary/20 text-sm">·</span>
+        <span className="text-[11px] text-primary/50">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</span>
+        <div className="flex-1" />
+        {sessions.length > 4 && (
+          <div className="relative">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Filter sessions…"
+              className="text-[10px] bg-muted/20 border border-border/40 rounded px-2.5 py-1 pl-6 w-36 focus:outline-none focus:border-primary/50"
+            />
+            <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-muted-foreground/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </div>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 text-[10px] gap-1 border-primary/20 text-primary hover:bg-primary/10 px-2"
+          onClick={() => setShowCreate(true)}
+        >
+          <Plus className="w-2.5 h-2.5" /> New Session
+        </Button>
+      </div>
+
+      {/* Sessions table */}
+      <div className="overflow-auto" style={{ maxHeight: "260px" }}>
+        <table className="w-full border-collapse">
+          <thead className="sticky top-0 z-10">
+            <tr>
+              <ColHeader label="Mode" field="mode" className="pl-5 w-[12%]" />
+              <ColHeader label="Session Title" field="title" className="w-[46%]" />
+              <ColHeader label="Messages" field="message_count" className="w-[12%]" />
+              <ColHeader label="Updated" field="updated_at" className="w-[20%]" />
+              <th className="w-[10%] border-b border-border/40 bg-muted/10" />
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && [...Array(3)].map((_, i) => (
+              <tr key={i} className="border-b border-border/20">
+                {[1, 2, 3, 4, 5].map(j => (
+                  <td key={j} className="px-3 py-2.5">
+                    <Skeleton className="h-3 w-3/4 rounded" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {!isLoading && sorted.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center py-10 text-xs text-muted-foreground">
+                  {search ? "No sessions match." : (
+                    <div>
+                      <p className="mb-2">No sessions yet. Start one to begin designing.</p>
+                      <Button size="sm" variant="outline" className="gap-1.5 h-7" onClick={() => setShowCreate(true)}>
+                        <Plus className="w-3 h-3" /> Start First Session
+                      </Button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )}
+            {sorted.map(s => {
+              const isSelected = selectedId === s.id;
+              return (
+                <tr
+                  key={s.id}
+                  onClick={() => onSelect(s)}
+                  className={cn(
+                    "cursor-pointer border-b border-border/20 transition-colors group",
+                    isSelected ? "bg-primary/8" : "hover:bg-muted/10"
+                  )}
+                >
+                  <td className="px-3 py-2 pl-5">
+                    <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border font-medium", MODE_COLORS[s.mode] ?? MODE_COLORS.EXPLORE)}>
+                      {s.mode}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={cn("text-xs font-medium truncate block max-w-[320px]", isSelected && "text-primary")}>
+                      {s.title ?? "Untitled Session"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="text-xs font-mono text-muted-foreground">{s.message_count ?? 0}</span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="text-xs text-muted-foreground">{relTime(s.updated_at)}</span>
+                  </td>
+                  <td className="px-3 py-2 pr-4 text-right">
+                    <span className={cn(
+                      "inline-flex items-center gap-1 text-[10px] font-medium text-primary transition-opacity",
+                      isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    )}>
+                      Open <ArrowRight className="w-2.5 h-2.5" />
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <CreateSessionDialog projectId={project.id} open={showCreate} onClose={() => setShowCreate(false)} />
+    </div>
+  );
+}
+
+// ── Compact sidebar (project+session lists when chat is open) ─────────────────
+
+function CompactProjectList({
+  projects,
+  selected,
+  onSelect,
+}: {
+  projects: StudioProject[];
+  selected: StudioProject | null;
+  onSelect: (p: StudioProject) => void;
+}) {
+  return (
+    <div className="overflow-y-auto py-1">
+      {projects.map(p => (
+        <button
+          key={p.id}
+          onClick={() => onSelect(p)}
+          className={cn(
+            "w-full text-left px-3 py-2 transition-colors border-l-2 flex items-center gap-2",
+            selected?.id === p.id
+              ? "border-l-primary bg-primary/5 text-primary"
+              : "border-l-transparent hover:bg-muted/20 text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", p.status === "ACTIVE" ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+          <p className="text-[11px] font-medium truncate flex-1">{p.title}</p>
+          <span className="text-[9px] font-mono text-muted-foreground shrink-0">{p.session_count ?? 0}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Legacy sidebar (kept for reference, no longer primary) ────────────────────
+
 function ProjectSidebar({ selected, onSelect }: {
   selected: StudioProject | null;
   onSelect: (p: StudioProject) => void;
 }) {
   const [showCreate, setShowCreate] = useState(false);
-  const { data: projects, isLoading } = useQuery({
+  const { data: projects = [], isLoading } = useQuery({
     queryKey: ["studio:projects"],
     queryFn: studioApi.listProjects,
   });
 
   return (
     <div className="flex flex-col h-full border-r border-border/50 bg-card/30 overflow-hidden">
-      {/* Header */}
-      <div className="shrink-0 px-3 py-3 border-b border-border/50">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold">Studio</span>
-        </div>
-        <Button
-          size="sm"
-          className="w-full h-7 text-xs gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-          variant="ghost"
-          onClick={() => setShowCreate(true)}
-        >
-          <Plus className="w-3.5 h-3.5" />New Project
-        </Button>
-      </div>
-
-      {/* Project list */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {isLoading && [1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-        {projects?.length === 0 && (
-          <div className="py-8 text-center">
-            <FolderOpen className="w-6 h-6 text-muted-foreground/40 mx-auto mb-2" />
-            <p className="text-[10px] text-muted-foreground">No projects yet</p>
+      <div className="shrink-0 px-3 py-2.5 border-b border-border/50">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold">Projects</span>
           </div>
-        )}
-        {projects?.map(p => (
-          <button
-            key={p.id}
-            onClick={() => onSelect(p)}
-            className={cn(
-              "w-full text-left p-2.5 rounded-lg border transition-all",
-              selected?.id === p.id
-                ? "border-primary/30 bg-primary/5"
-                : "border-border/40 bg-muted/5 hover:border-border/60 hover:bg-muted/20"
-            )}
-          >
-            <p className="text-xs font-medium leading-tight truncate">{p.title}</p>
-            {p.domain_type && (
-              <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{p.domain_type.replace("_", " ")}</p>
-            )}
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[9px] text-muted-foreground flex items-center gap-1">
-                <MessageSquare className="w-2.5 h-2.5" />{p.session_count ?? 0}
-              </span>
-              {p.status !== "ACTIVE" && (
-                <span className="text-[9px] text-muted-foreground/60 ml-auto capitalize">{p.status}</span>
-              )}
-            </div>
-          </button>
-        ))}
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setShowCreate(true)}>
+            <Plus className="w-3 h-3" />
+          </Button>
+        </div>
       </div>
-
+      <div className="flex-1 overflow-y-auto">
+        {isLoading && <div className="p-2 space-y-1">{[1,2,3].map(i => <Skeleton key={i} className="h-8 w-full rounded" />)}</div>}
+        {!isLoading && (
+          <CompactProjectList projects={projects} selected={selected} onSelect={onSelect} />
+        )}
+      </div>
       <CreateProjectDialog open={showCreate} onClose={() => setShowCreate(false)} />
     </div>
   );
@@ -1550,79 +1936,116 @@ export default function Studio() {
   const [selectedProject, setSelectedProject] = useState<StudioProject | null>(null);
   const [selectedSession, setSelectedSession] = useState<StudioSession | null>(null);
 
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ["studio:projects"],
+    queryFn: studioApi.listProjects,
+  });
+
   const handleProjectSelect = (p: StudioProject) => {
-    setSelectedProject(p);
-    setSelectedSession(null);
+    // Clicking the same project collapses sessions
+    if (selectedProject?.id === p.id) {
+      setSelectedProject(null);
+      setSelectedSession(null);
+    } else {
+      setSelectedProject(p);
+      setSelectedSession(null);
+    }
   };
 
+  // ── Session active: 3-panel chat layout ────────────────────────────────────
+  if (selectedSession) {
+    return (
+      <div className="flex h-full overflow-hidden">
+        {/* Compact left: projects + sessions stacked */}
+        <div className="w-52 shrink-0 flex flex-col border-r border-border/50 bg-card/20">
+          {/* Projects list */}
+          <div className="shrink-0 px-3 py-2 border-b border-border/40 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-primary" />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Projects</span>
+            </div>
+            <button
+              onClick={() => { setSelectedSession(null); setSelectedProject(null); }}
+              className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+            >
+              <X className="w-2.5 h-2.5" /> Close
+            </button>
+          </div>
+          <div className="flex-none overflow-y-auto" style={{ maxHeight: "30%" }}>
+            <CompactProjectList projects={allProjects} selected={selectedProject} onSelect={p => { setSelectedProject(p); setSelectedSession(null); }} />
+          </div>
+
+          {/* Sessions list */}
+          {selectedProject && (
+            <>
+              <div className="shrink-0 px-3 py-1.5 border-y border-border/40 bg-primary/5">
+                <span className="text-[9px] font-mono uppercase tracking-wider text-primary/60">Sessions</span>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <SessionsList
+                  project={selectedProject}
+                  selectedId={selectedSession?.id}
+                  onSelect={setSelectedSession}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Chat */}
+        <div className="flex-1 overflow-hidden">
+          <ChatPanel session={selectedSession} />
+        </div>
+
+        {/* Outputs */}
+        <div className="w-60 shrink-0">
+          <OutputsPanel projectId={selectedProject!.id} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Browse state: full-width table layout ──────────────────────────────────
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Project sidebar */}
-      <div className="w-52 shrink-0">
-        <ProjectSidebar selected={selectedProject} onSelect={handleProjectSelect} />
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Projects table — takes available space, sessions expand below */}
+      <div className={cn("overflow-hidden transition-all", selectedProject ? "flex-none" : "flex-1")}
+        style={selectedProject ? { height: "55%" } : undefined}>
+        <ProjectsTable selected={selectedProject} onSelect={handleProjectSelect} />
       </div>
 
-      {/* Sessions list or empty state */}
-      <div className="w-64 shrink-0 border-r border-border/50">
-        {selectedProject ? (
-          <SessionsList
+      {/* Sessions table — slides in when project is selected */}
+      {selectedProject && (
+        <div className="flex-1 overflow-hidden">
+          <SessionsTable
             project={selectedProject}
             selectedId={selectedSession?.id}
             onSelect={setSelectedSession}
           />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-            <div className="w-14 h-14 rounded-full bg-primary/5 border border-primary/15 flex items-center justify-center mb-3">
-              <FolderOpen className="w-7 h-7 text-primary/50" />
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">Select a project</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Choose a project from the left to see sessions</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Chat area */}
-      <div className="flex-1 overflow-hidden">
-        {selectedSession ? (
-          <ChatPanel session={selectedSession} />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <div className="w-16 h-16 rounded-full bg-primary/5 border border-primary/15 flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-primary/40" />
+      {/* Empty state when nothing selected */}
+      {!selectedProject && (
+        <div className="shrink-0 border-t border-border/30 bg-muted/5 px-6 py-4 flex items-center gap-6">
+          {[
+            { icon: Layers,        title: "Design Projects",    desc: "Organize work into scoped projects" },
+            { icon: MessageSquare, title: "Session Chat",        desc: "AI-assisted design conversations" },
+            { icon: CheckSquare,   title: "Auto-Extract",        desc: "Requirements & decisions captured automatically" },
+            { icon: Zap,           title: "Dev Handoff",         desc: "Export structured specs" },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex items-start gap-2.5 flex-1 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                <Icon className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium">{title}</p>
+                <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{desc}</p>
+              </div>
             </div>
-            <h2 className="text-lg font-semibold">Workforce Studio</h2>
-            <p className="text-muted-foreground text-sm mt-1 max-w-sm">
-              An AI-assisted workspace for designing workflows, modules, and operational blueprints.
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-2 max-w-sm text-left">
-              {[
-                { icon: Layers,      title: "Design Projects",  desc: "Organize your work into scoped design projects" },
-                { icon: MessageSquare, title: "Session Chat",   desc: "Brainstorm and structure ideas in conversation" },
-                { icon: CheckSquare, title: "Auto-Extract",     desc: "Requirements, decisions & questions extracted automatically" },
-                { icon: Zap,         title: "Action-Ready",     desc: "Export structured specs for dev handoff" },
-              ].map(({ icon: Icon, title, desc }) => (
-                <div key={title} className="p-3 rounded-lg border border-border/40 bg-muted/10">
-                  <Icon className="w-4 h-4 text-primary mb-1.5" />
-                  <p className="text-xs font-medium">{title}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Outputs panel */}
-      <div className="w-64 shrink-0">
-        {selectedProject ? (
-          <OutputsPanel projectId={selectedProject.id} />
-        ) : (
-          <div className="h-full border-l border-border/50 bg-card/20 flex flex-col items-center justify-center">
-            <FileText className="w-6 h-6 text-muted-foreground/30" />
-            <p className="text-[10px] text-muted-foreground/50 mt-2">No project selected</p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
