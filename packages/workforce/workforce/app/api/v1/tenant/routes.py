@@ -10,12 +10,12 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from packages.workforce.workforce.app.core.auth_deps import (
+from apps.api.app.core.auth_deps import (
     CurrentUser, require_membership, require_permission, _get_user_location_permissions, get_tenant_ctx,
 )
-from packages.workforce.workforce.app.core.db import get_db
-from packages.workforce.workforce.app.models.business import Location
-from packages.workforce.workforce.app.models.identity import (
+from apps.api.app.core.db import get_db
+from apps.api.app.models.business import Location
+from apps.api.app.models.identity import (
     BizRole, BizRolePermission, Membership, MembershipLocationRole, MembershipRole,
     MembershipStatus, Permission, User, UserStatus, WorkerProfile,
 )

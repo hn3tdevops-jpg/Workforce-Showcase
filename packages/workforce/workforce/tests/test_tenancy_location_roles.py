@@ -4,12 +4,12 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 
-from packages.workforce.workforce.app.models.base import Base
-from packages.workforce.workforce.app.models.identity import (
+from apps.api.app.models.base import Base
+from apps.api.app.models.identity import (
     User, Membership, BizRole, MembershipLocationRole, AuditEvent
 )
-from packages.workforce.workforce.app.models.business import Business, Location
-from packages.workforce.workforce.app.services.tenant_service import set_member_location_roles_service
+from apps.api.app.models.business import Business, Location
+from apps.api.app.services.tenant_service import set_member_location_roles_service
 
 # Use an isolated in-memory SQLite DB for tests
 engine = create_engine("sqlite://", future=True)

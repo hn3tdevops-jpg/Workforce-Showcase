@@ -1,13 +1,13 @@
 import os
 import pytest
 os.environ.setdefault("DATABASE_URL", "sqlite://")
-from packages.workforce.workforce.app.core.db import engine, db_session
-from packages.workforce.workforce.app.models.base import Base
+from apps.api.app.core.db import engine, db_session
+from apps.api.app.models.base import Base
 # Ensure in-memory test DB has schema
 Base.metadata.create_all(engine)
-from packages.workforce.workforce.app.core.auth_deps import _get_user_permissions
-from packages.workforce.workforce.app.models.identity import User, Membership, BizRole, BizRolePermission, Permission, MembershipRole
-from packages.workforce.workforce.app.models.business import Business
+from apps.api.app.core.auth_deps import _get_user_permissions
+from apps.api.app.models.identity import User, Membership, BizRole, BizRolePermission, Permission, MembershipRole
+from apps.api.app.models.business import Business
 
 
 

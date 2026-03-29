@@ -19,7 +19,7 @@ from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from packages.workforce.workforce.app.core.db import get_db
+from apps.api.app.core.db import get_db
 from packages.workforce.workforce.app.core.security import decode_access_token, hash_api_key
 from packages.workforce.workforce.app.models.identity import (
     Agent, AgentCredential, AgentStatus,

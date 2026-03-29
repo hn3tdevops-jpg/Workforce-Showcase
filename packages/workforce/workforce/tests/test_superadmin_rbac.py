@@ -3,20 +3,20 @@ import pytest
 from sqlalchemy import select
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")
-from packages.workforce.workforce.app.core.db import engine, db_session
-from packages.workforce.workforce.app.models.base import Base
+from apps.api.app.core.db import engine, db_session
+from apps.api.app.models.base import Base
 
 # Ensure in-memory test DB has schema
 Base.metadata.create_all(engine)
 
 from fastapi import HTTPException
-from packages.workforce.workforce.app.core.auth_deps import (
+from apps.api.app.core.auth_deps import (
     _get_user_permissions,
     _get_user_location_permissions,
     _resolve_business_id,
     get_tenant_ctx,
 )
-from packages.workforce.workforce.app.models.identity import (
+from apps.api.app.models.identity import (
     User,
     Membership,
     BizRole,
@@ -25,8 +25,8 @@ from packages.workforce.workforce.app.models.identity import (
     MembershipRole,
     MembershipLocationRole,
 )
-from packages.workforce.workforce.app.models.business import Business, Location
-from packages.workforce.workforce.app.services.roles_seed import seed_permissions_and_roles
+from apps.api.app.models.business import Business, Location
+from apps.api.app.services.roles_seed import seed_permissions_and_roles
 
 
 def test_superadmin_bypasses_membership_and_has_all_permissions():
