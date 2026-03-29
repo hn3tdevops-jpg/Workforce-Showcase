@@ -859,6 +859,131 @@ function seedIfEmpty(db: Database.Database): void {
     ["shift_assignees",  "ALTER TABLE shift_assignees ADD COLUMN employee_profile_id TEXT REFERENCES employee_profiles(id)"],
     ["maintenance_issues","ALTER TABLE maintenance_issues ADD COLUMN assignee_ep_id TEXT REFERENCES employee_profiles(id)"],
   ];
+
+  // ── Communications tables ──────────────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS comm_messages (
+      id            TEXT PRIMARY KEY,
+      type          TEXT NOT NULL DEFAULT 'ANNOUNCEMENT',
+      subject       TEXT NOT NULL,
+      body          TEXT NOT NULL,
+      author_user_id TEXT,
+      author_ep_id  TEXT REFERENCES employee_profiles(id),
+      author_name   TEXT,
+      target_type   TEXT NOT NULL DEFAULT 'ALL',
+      target_value  TEXT,
+      priority      TEXT NOT NULL DEFAULT 'NORMAL',
+      is_pinned     INTEGER NOT NULL DEFAULT 0,
+      is_archived   INTEGER NOT NULL DEFAULT 0,
+      reply_count   INTEGER NOT NULL DEFAULT 0,
+      business_id   TEXT NOT NULL DEFAULT 'biz-silver-sands',
+      location_id   TEXT DEFAULT 'loc-001',
+      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at    TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS comm_reads (
+      message_id TEXT NOT NULL REFERENCES comm_messages(id) ON DELETE CASCADE,
+      user_id    TEXT NOT NULL,
+      read_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (message_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS comm_replies (
+      id             TEXT PRIMARY KEY,
+      message_id     TEXT NOT NULL REFERENCES comm_messages(id) ON DELETE CASCADE,
+      author_user_id TEXT,
+      author_ep_id   TEXT REFERENCES employee_profiles(id),
+      author_name    TEXT,
+      body           TEXT NOT NULL,
+      created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_comm_biz      ON comm_messages(business_id, is_archived, created_at);
+    CREATE INDEX IF NOT EXISTS idx_comm_type     ON comm_messages(business_id, type);
+    CREATE INDEX IF NOT EXISTS idx_comm_reads_u  ON comm_reads(user_id);
+    CREATE INDEX IF NOT EXISTS idx_comm_replies  ON comm_replies(message_id);
+  `);
+
+  // ── Seed communications (idempotent) ───────────────────────────────────────
+  const commCount = (db.prepare("SELECT COUNT(*) as n FROM comm_messages").get() as { n: number }).n;
+  if (commCount === 0) {
+    const ins = db.prepare(`
+      INSERT OR IGNORE INTO comm_messages (id, type, subject, body, author_user_id, author_ep_id, author_name, target_type, priority, is_pinned, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    // Urgent pinned announcement
+    ins.run("comm-001", "ANNOUNCEMENT",
+      "⚠️ Pool Wing Closure – All Staff",
+      "The pool wing (Rooms 201–208) will be closed for emergency plumbing repairs starting Monday. Please update all guest check-in briefs and redirect any pool-view requests to the garden-view rooms. Coordinate with front desk before assigning rooms in that block.",
+      "user-001", "ep-user-001", "Sarah Okonkwo", "ALL", "URGENT", 1,
+      new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    // High priority announcement
+    ins.run("comm-002", "ANNOUNCEMENT",
+      "New Linen Policy Effective Monday",
+      "Starting Monday, the linen refresh schedule changes from daily to every-other-day for stays longer than 3 nights, unless guests request otherwise. Please update your housekeeping checklists. Training sheets are posted in the break room.",
+      "user-003", "ep-user-003", "Amara Singh", "DEPT", "HIGH", 0,
+      new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    // Normal announcement
+    ins.run("comm-003", "ANNOUNCEMENT",
+      "Welcome – Robert Garrett has joined the team!",
+      "Please give a warm welcome to Robert Garrett, our new Front Desk Agent starting this week. Robert comes from the Seaside Inn and has 4 years of hospitality experience. He'll be shadowing Marcus this week.",
+      "user-001", "ep-user-001", "Sarah Okonkwo", "ALL", "NORMAL", 0,
+      new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    // Handover notes
+    ins.run("comm-004", "HANDOVER",
+      "AM→PM Handover – Room 104 Guest Issue",
+      "Room 104 guest (Mr. Kessler) reported the AC unit making a rattling noise. Derek was notified and said he'll check it during the PM shift. Guest was offered a room move but declined. Please follow up to confirm issue resolved before 8 PM.",
+      "user-002", "ep-user-002", "Marcus Yee", "ALL", "HIGH", 0,
+      new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    ins.run("comm-005", "HANDOVER",
+      "PM→Night Handover – All Clear",
+      "Quiet evening. All rooms turned over except 212 (late checkout approved until 11 PM). Vending machine on floor 1 is out of service — maintenance ticket filed. Night audit package is on the desk. Key for storage room B is hanging by the board.",
+      "user-002", "ep-user-002", "Marcus Yee", "ALL", "NORMAL", 0,
+      new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    ins.run("comm-006", "HANDOVER",
+      "Night→AM Handover – Early Arrivals",
+      "3 early arrivals expected before 10 AM: Rooms 101, 115, and 307. Rooms 101 and 115 are ready. Room 307 still needs a deep clean — priority for the 7 AM hk crew. Coffee machine in lobby was refilled. No incidents overnight.",
+      "user-001", "ep-user-001", "Sarah Okonkwo", "ALL", "NORMAL", 0,
+      new Date(Date.now() - 30 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    // Notices
+    ins.run("comm-007", "NOTICE",
+      "📌 Parking Policy Reminder",
+      "Staff vehicles must be parked in the rear lot (spots 1–12) only. The front lot and side street spots are for guests. This is strictly enforced during peak season. Vehicles found in guest spots may be towed without warning.",
+      "user-001", "ep-user-001", "Sarah Okonkwo", "ALL", "NORMAL", 1,
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    ins.run("comm-008", "NOTICE",
+      "Emergency Contact Numbers – Updated",
+      "The updated emergency contact sheet is now posted in the break room, front desk drawer, and maintenance office. Key additions: new plumber (Mike's Plumbing: 555-0191) and updated fire marshal contact. Please familiarize yourself with the sheet.",
+      "user-001", "ep-user-001", "Sarah Okonkwo", "ALL", "NORMAL", 0,
+      new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    // Add some replies
+    const insReply = db.prepare(`
+      INSERT OR IGNORE INTO comm_replies (id, message_id, author_user_id, author_ep_id, author_name, body, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    insReply.run("rply-001", "comm-001", "user-002", "ep-user-002", "Marcus Yee",
+      "Noted – I'll update the room assignment guide at the front desk.",
+      new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+    insReply.run("rply-002", "comm-001", "user-003", "ep-user-003", "Amara Singh",
+      "Housekeeping schedule updated accordingly. We'll skip 201–208 from Monday's assignment.",
+      new Date(Date.now() - 45 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19));
+
+    // Update reply counts
+    db.prepare("UPDATE comm_messages SET reply_count = 2 WHERE id = 'comm-001'").run();
+  }
+
+  // ── Migration: add communications to enabled_modules ──────────────────────
   for (const [table, sql] of migrations) {
     try {
       const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
@@ -871,7 +996,7 @@ function seedIfEmpty(db: Database.Database): void {
   }
 
   // ── Migration: ensure all required modules are in enabled_modules ────────────
-  const REQUIRED_MODULES = ["studio", "employees", "promotions", "inspections", "inventory", "maintenance"];
+  const REQUIRED_MODULES = ["studio", "employees", "promotions", "inspections", "inventory", "maintenance", "communications"];
   const settingsRows = db.prepare("SELECT business_id, enabled_modules FROM business_settings").all() as { business_id: string; enabled_modules: string }[];
   for (const row of settingsRows) {
     try {

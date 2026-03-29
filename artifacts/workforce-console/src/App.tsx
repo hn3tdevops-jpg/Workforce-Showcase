@@ -26,6 +26,7 @@ import Employees from "@/pages/employees";
 import Inspections from "@/pages/inspections";
 import Maintenance from "@/pages/maintenance";
 import Inventory from "@/pages/inventory";
+import Communications from "@/pages/communications";
 import InviteClaim from "@/pages/invite";
 import NotFound from "@/pages/not-found";
 
@@ -65,7 +66,8 @@ function ProtectedRoutes() {
               <Route path="/app/employees"    component={() => <PageContent><Employees /></PageContent>} />
               <Route path="/app/inspections" component={() => <PageContent><Inspections /></PageContent>} />
               <Route path="/app/maintenance" component={() => <PageContent><Maintenance /></PageContent>} />
-              <Route path="/app/inventory"   component={() => <PageContent><Inventory /></PageContent>} />
+              <Route path="/app/inventory"        component={() => <PageContent><Inventory /></PageContent>} />
+              <Route path="/app/communications"  component={() => <PageContent><Communications /></PageContent>} />
               <Route path="/app/session"      component={() => <PageContent><SessionDebug /></PageContent>} />
               <Route path="/app/timeline"     component={Timeline} />
               <Route path="/app/property-map" component={PropertyMap} />
