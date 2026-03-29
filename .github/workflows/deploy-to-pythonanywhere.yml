@@ -1,0 +1,95 @@
+name: Deploy to PythonAnywhere
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install requests
+        run: python -m pip install --upgrade pip && pip install requests
+
+      - name: Deploy to PythonAnywhere
+        env:
+          PA_USERNAME: ${{ secrets.PA_USERNAME }}
+          PA_API_TOKEN: ${{ secrets.PA_API_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          python - <<'PY'
+import os,sys,requests
+user=os.environ.get('PA_USERNAME')
+token=os.environ.get('PA_API_TOKEN')
+repo=os.environ.get('GITHUB_REPOSITORY')
+if not user or not token:
+    print('Missing PA_USERNAME or PA_API_TOKEN')
+    sys.exit(2)
+base=f"https://www.pythonanywhere.com/api/v0/user/{user}"
+auth=(user, token)
+# List webapps
+r=requests.get(base+'/webapps/', auth=auth)
+print('list webapps status', r.status_code)
+if r.status_code!=200:
+    print(r.text)
+    sys.exit(3)
+webapps=r.json()
+# Try to find the webapp matching the expected hostname
+target_hostname='workforce-hn3t.pythonanywhere.com'
+found=None
+for w in webapps:
+    try:
+        if w.get('hostname')==target_hostname or w.get('domain')==target_hostname:
+            found=w
+            break
+    except Exception:
+        pass
+if not found:
+    # fallback to first webapp
+    if len(webapps)>0:
+        found=webapps[0]
+    else:
+        print('No webapps found for user', user)
+        sys.exit(4)
+# Determine identifier for reload endpoint
+webapp_id = found.get('hostname') or found.get('id') or found.get('domain') or None
+if not webapp_id:
+    print('Could not determine webapp identifier from', found)
+    sys.exit(5)
+reload_url = base + f"/webapps/{webapp_id}/reload/"
+rr = requests.post(reload_url, auth=auth)
+print('reload', rr.status_code)
+print(rr.text)
+# Attempt to run a console command to git pull or clone the repo into the user's home
+cmd = f'cd ~ && if [ -d "{repo.split("/")[-1]}" ]; then cd {repo.split("/")[-1]} && git pull || true; else git clone https://github.com/{repo}.git; fi'
+try:
+    consoles_url = base + '/consoles/'
+    rc = requests.post(consoles_url, json={'command': cmd}, auth=auth)
+    print('console', rc.status_code)
+    print(rc.text)
+except Exception as e:
+    print('console error', e)
+PY
+
+# Commit and push the workflow file
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  git add .github/workflows/deploy-to-pythonanywhere.yml
+  git commit -m "ci: add PythonAnywhere deploy workflow\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>" || echo "no-changes-to-commit"
+  git push origin main || echo "push-failed"
+else
+  # create initial commit if needed
+  git add -A
+  git commit -m "chore: initial commit with workflow\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>" || echo "commit-failed"
+  git push -u origin main || echo "push-failed"
+fi
