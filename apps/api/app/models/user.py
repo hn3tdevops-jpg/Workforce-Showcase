@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, ForeignKey, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base
+from apps.api.app.models.base import Base
 
 class User(Base):
     __tablename__ = "users"

@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, ForeignKey, Index, PrimaryKeyConstraint, String, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from apps.api.app.models.base import Base
 
 
 def _sqlite_uuid_server_default():
