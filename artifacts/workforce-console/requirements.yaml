@@ -1,0 +1,17 @@
+packages:
+  "date-fns": "For formatting dates and times nicely in tables"
+  "framer-motion": "For page transitions and smooth micro-interactions"
+  "recharts": "For dashboard charts and statistics"
+  "@hookform/resolvers": "For Zod form validation"
+
+images:
+  - path: "artifacts/workforce-console/public/images/login-bg.png"
+    description: "Abstract, dark, moody geometric background with subtle neon indigo and blue light leaks, professional corporate tech feel"
+    aspect_ratio: "16:9"
+  - path: "artifacts/workforce-console/public/images/logo-icon.png"
+    description: "Minimalist modern geometric logo mark in vibrant indigo for a software company, transparent background, solid shape"
+    aspect_ratio: "1:1"
+
+notes:
+  - "External API at https://hn3t.pythonanywhere.com requires Bearer token"
+  - "App is strictly dark mode as requested"
