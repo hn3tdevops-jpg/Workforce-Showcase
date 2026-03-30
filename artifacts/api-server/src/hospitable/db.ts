@@ -626,6 +626,35 @@ function initSchema(db: Database.Database): void {
       UNIQUE(project_id, artifact_type)
     );
 
+    -- ── AI Conversations & Messages ───────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id              TEXT PRIMARY KEY,
+      business_id     TEXT NOT NULL DEFAULT 'biz-silver-sands',
+      location_id     TEXT,
+      user_id         TEXT,
+      title           TEXT NOT NULL DEFAULT 'New conversation',
+      status          TEXT NOT NULL DEFAULT 'active',
+      provider        TEXT NOT NULL DEFAULT 'openai',
+      channel         TEXT NOT NULL DEFAULT 'communication_center',
+      message_count   INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_messages (
+      id               TEXT PRIMARY KEY,
+      conversation_id  TEXT NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
+      role             TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+      content          TEXT NOT NULL,
+      metadata_json    TEXT,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ai_conv_biz    ON ai_conversations(business_id, updated_at);
+    CREATE INDEX IF NOT EXISTS idx_ai_conv_user   ON ai_conversations(user_id, updated_at);
+    CREATE INDEX IF NOT EXISTS idx_ai_msg_conv    ON ai_messages(conversation_id, created_at);
+
   `);
 }
 

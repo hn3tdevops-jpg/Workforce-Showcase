@@ -15,6 +15,7 @@ import inventoryRouter from "./inventory/router.js";
 import notificationsRouter from "./notifications/router.js";
 import communicationsRouter from "./communications/router.js";
 import adminRouter from "./admin/router.js";
+import aiRouter from "./ai/router.js";
 import { logger } from "./lib/logger.js";
 
 const PA_BASE = "https://hn3t.pythonanywhere.com";
@@ -58,6 +59,7 @@ app.use("/api/v1/inventory", inventoryRouter);
 app.use("/api/v1/notifications", notificationsRouter);
 app.use("/api/v1/communications", communicationsRouter);
 app.use("/api/v1/admin", adminRouter);
+app.use("/api/v1/ai", aiRouter);
 
 // Seed promotion tiers on startup (idempotent)
 seedPromotionTiers();

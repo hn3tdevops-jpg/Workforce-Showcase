@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
@@ -20,8 +20,10 @@ import {
   Megaphone, ArrowLeftRight, StickyNote, Plus, Pin, ChevronDown,
   ChevronUp, MessageSquare, Clock, AlertTriangle, Zap, User,
   Check, Reply, Send, Loader2, Archive, Trash2, Users,
-  BellRing, Shield,
+  BellRing, Shield, Bot, Sparkles, CornerDownLeft, RefreshCw,
+  PlusCircle, ChevronRight,
 } from "lucide-react";
+import { API_BASE } from "@/lib/api-client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,13 +98,110 @@ const PRIORITY_CONFIG = {
   NORMAL: { label: "",       icon: null,          cls: "" },
 };
 
+// ── AI Types ──────────────────────────────────────────────────────────────────
+
+interface AiConversation {
+  id: string;
+  business_id: string;
+  user_id?: string;
+  title: string;
+  status: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AiMessage {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  streaming?: boolean;
+}
+
+// ── AI API ────────────────────────────────────────────────────────────────────
+
+const aiApi = {
+  listConversations: (userId?: string) => {
+    const p = userId ? `?user_id=${encodeURIComponent(userId)}` : "";
+    return fetchApi<AiConversation[]>(`/ai/conversations${p}`);
+  },
+  createConversation: (data: { user_id?: string; title?: string }) =>
+    fetchApi<AiConversation>("/ai/conversations", { method: "POST", body: JSON.stringify(data) }),
+  getConversation: (id: string) =>
+    fetchApi<AiConversation & { messages: AiMessage[] }>(`/ai/conversations/${id}`),
+  deleteConversation: (id: string) =>
+    fetchApi<{ ok: boolean }>(`/ai/conversations/${id}`, { method: "DELETE" }),
+};
+
+// ── SSE streaming helper ───────────────────────────────────────────────────────
+
+async function streamChat(
+  convId: string,
+  text: string,
+  userId: string | undefined,
+  onDelta: (delta: string) => void,
+): Promise<void> {
+  const token = localStorage.getItem("workforce_token");
+  const res = await fetch(`${API_BASE}/ai/conversations/${convId}/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ text, user_id: userId }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "Stream request failed");
+    throw new Error(msg);
+  }
+  if (!res.body) throw new Error("No response body from SSE stream");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let currentEvent = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        try {
+          const data = JSON.parse(line.slice(6)) as Record<string, unknown>;
+          if (currentEvent === "message.delta" && typeof data.delta === "string") {
+            onDelta(data.delta);
+          } else if (currentEvent === "error") {
+            throw new Error((data.message as string) ?? "AI provider error");
+          }
+        } catch (e) {
+          if (e instanceof SyntaxError) continue;
+          throw e;
+        }
+        currentEvent = "";
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const TAB_CONFIG = [
   { id: "ANNOUNCEMENT", label: "Announcements", icon: Megaphone,    desc: "Property-wide broadcasts and updates" },
   { id: "HANDOVER",     label: "Handover",       icon: ArrowLeftRight, desc: "Shift-to-shift handover notes" },
   { id: "NOTICE",       label: "Notices",        icon: StickyNote,   desc: "Pinned notices and policy reminders" },
+  { id: "AI",           label: "AI Assistant",   icon: Bot,          desc: "Workforce AI chat powered by OpenAI" },
 ] as const;
 
-type TabId = "ANNOUNCEMENT" | "HANDOVER" | "NOTICE";
+type TabId = "ANNOUNCEMENT" | "HANDOVER" | "NOTICE" | "AI";
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
