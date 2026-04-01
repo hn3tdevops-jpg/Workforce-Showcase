@@ -1,0 +1,64 @@
+name: Playwright Browser Validation (dist-staging)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  validate-browser:
+    name: Validate browser against dist-staging
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies (Playwright only)
+        run: |
+          npm ci --no-audit --no-fund || true
+          npm i -D playwright@latest
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Start static server (dist-staging)
+        run: |
+          if [ ! -d dist-staging ]; then echo "dist-staging not found"; exit 2; fi
+          python3 -m http.server 5000 --directory dist-staging &
+          echo $! > /tmp/static_server.pid
+          sleep 2
+
+      - name: Run browser-level validation script
+        id: run_playwright
+        run: |
+          node scripts/playwright-run.cjs > playwright-or-browser-test-log.txt 2>&1 || true
+          sed -n '1,200p' playwright-or-browser-test-log.txt || true
+
+      - name: Check results (pass/fail)
+        id: check_results
+        run: |
+          node scripts/check-playwright-results.cjs
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-or-browser-test-log.txt
+            browser-console-errors.txt
+            failed-network-requests.txt
+            route-validation-summary.md
+            screenshots/**
+
+      - name: Stop static server
+        if: always()
+        run: |
+          if [ -f /tmp/static_server.pid ]; then kill "$(cat /tmp/static_server.pid)" || true; rm -f /tmp/static_server.pid || true; fi
+
+# Notes:
+# - Validates only dist-staging. Does not modify production artifacts.
+# - Job fails if any fatal console errors or failed network requests are detected, or if any visited route returns a non-2xx status.
