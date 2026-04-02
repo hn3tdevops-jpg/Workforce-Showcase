@@ -70,6 +70,8 @@ If these files are later added, include any agent-specific instructions here (au
 
 Playwright MCP: a local helper script was added at `scripts/mcp/start-playwright-mcp.sh`. Run it to install browsers and start Playwright in watch mode.
 
+A GitHub Actions workflow is available at `.github/workflows/playwright-ci.yml` which runs on push and pull_request. It installs pnpm, dependencies, Playwright browsers, and runs `pnpm exec playwright test`.
+
 ---
 
 Summary: updated Copilot instructions in .github/copilot-instructions.md to consolidate build/test/run commands, architecture notes, repo-specific conventions, and an AI-config scan. Update this file when the repo adds new scripts or CI behaviors.
