@@ -1,5 +1,7 @@
 {
   "last_completed_task": "prepare-github-actions-browser-validation",
   "next_suggested_task": "rerun-browser-functional-validation-in-supported-environment",
-  "notes": "Prepared GitHub Actions workflow and helper scripts for Playwright validation against dist-staging. Status remains NO-GO until validation run passes."
+  "notes": "Prepared GitHub Actions workflow and helper scripts for Playwright validation against dist-staging. Status remains NO-GO until validation run passes.",
+  "workflow_trigger_attempt": "failed",
+  "workflow_trigger_error": "git push rejected: missing workflow scope for PAT; gh workflow run failed or not authenticated"
 }
