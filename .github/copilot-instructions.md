@@ -68,7 +68,7 @@ If these files are later added, include any agent-specific instructions here (au
 ## MCP servers (Playwright)
 - Playwright appears in devDependencies at the repo root. If Playwright test orchestration or browser automation is needed for Copilot-guided testing, configure an MCP (Playwright) server.
 
-Would you like Copilot to configure a Playwright MCP server for this repo? (Yes/No)
+Playwright MCP: a local helper script was added at `scripts/mcp/start-playwright-mcp.sh`. Run it to install browsers and start Playwright in watch mode.
 
 ---
 
