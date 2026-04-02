@@ -70,7 +70,13 @@ If these files are later added, include any agent-specific instructions here (au
 
 Playwright MCP: a local helper script was added at `scripts/mcp/start-playwright-mcp.sh`. Run it to install browsers and start Playwright in watch mode.
 
-A GitHub Actions workflow is available at `.github/workflows/playwright-ci.yml` which runs on push and pull_request. It installs pnpm, dependencies, Playwright browsers, and runs `pnpm exec playwright test`.
+CI and runner dependencies: GitHub Actions runners and other Ubuntu/Debian hosts may require additional OS packages for Playwright browsers. Run `pnpm exec playwright install-deps` on the runner (or locally) to install those system packages. The CI workflow `.github/workflows/playwright-ci.yml` now runs this step automatically before installing browsers.
+
+Example commands (Ubuntu/Debian):
+
+  pnpm install --frozen-lockfile
+  pnpm exec playwright install-deps
+  pnpm exec playwright install --with-deps
 
 ---
 
