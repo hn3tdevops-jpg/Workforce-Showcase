@@ -200,3 +200,12 @@ Note: MCP servers are optional. Normal Playwright usage and CI runs do not requi
 Summary
 
 Added concise, copy-paste-ready examples for testing, building, Playwright setup, artifact workflow, CI pointers, and troubleshooting. Keep these examples updated alongside package.json and CI workflows if script names or output paths change.
+
+## Execution contract
+- Use `docs/plans/HN3T_MASTER_PLAN.md` as the repo-local plan entrypoint.
+- Treat `/home/hn3t/workforce/HN3T_MASTER_PLAN.md` as canonical for cross-repo alignment.
+- Execute only the next smallest complete frontend-scoped task.
+- Update `.copilot_frontend/state.json` after meaningful progress.
+- Update `docs/ADMIN/frontend/PROGRESS_REPORT_FRONTEND.md` whenever project state changes.
+- Do not implement backend-only schema/API/RBAC changes in this repository.
+- Keep changes small, reviewable, and operationally safe.
