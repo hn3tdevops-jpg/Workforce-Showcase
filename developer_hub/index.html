@@ -346,6 +346,18 @@
       gap: 12px;
     }
 
+    /* Quick links styling */
+    .quick-links {
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      margin-bottom: 12px;
+    }
+    .quick-links .tags { margin-top: 8px; }
+    .quick-links .tag { display: inline-block; margin-right: 8px; }
+
+
     .doc-card:hover, .report-card:hover, .activity-card:hover {
       border-color: rgba(140,162,255,0.3);
       transform: translateY(-1px);
@@ -624,6 +636,16 @@
             </label>
           </div>
 
+          <!-- Quick Links to important frontend operational docs -->
+          <div class="quick-links" id="quickLinks">
+            <div class="doc-top">
+              <div><h3>Quick links</h3></div>
+            </div>
+            <div class="muted">Operational runbooks and preview helpers for frontend developers.</div>
+            <div style="height:8px"></div>
+            <div id="quickLinksList" class="tags"></div>
+          </div>
+
           <div class="docs-grid" id="docsGrid"></div>
         </div>
       </article>
@@ -876,6 +898,20 @@
     const reportSearch = document.getElementById('reportSearch');
     const reportStatusFilter = document.getElementById('reportStatusFilter');
 
+    const quickLinksList = document.getElementById('quickLinksList');
+
+    const quickLinks = [
+      { title: 'Frontend Deploy README', href: '../docs/ADMIN/frontend/README.frontend-deploy.md' },
+      { title: 'OFF_HOST_PLAYWRIGHT_RUNBOOK', href: '../docs/ADMIN/frontend/OFF_HOST_PLAYWRIGHT_RUNBOOK.md' },
+      { title: 'FRONTEND EXECUTION TRACKER', href: '../docs/ADMIN/frontend/FRONTEND_EXECUTION_TRACKER.md' },
+      { title: 'Frontend Project Manager Module', href: '../docs/ADMIN/frontend/workforce-project-manager-module/README.md' },
+      { title: 'Local preview script', href: '../scripts/preview_frontend.sh' },
+    ];
+
+    function renderQuickLinks() {
+      quickLinksList.innerHTML = quickLinks.map(l => `<a class="tag" href="${l.href}" target="_blank">${l.title}</a>`).join('');
+    }
+
     const categories = [...new Set(docsData.map(doc => doc.category))].sort();
     categories.forEach(category => {
       const option = document.createElement('option');
@@ -1003,6 +1039,7 @@
     reportSearch.addEventListener('input', renderReports);
     reportStatusFilter.addEventListener('change', renderReports);
 
+    renderQuickLinks();
     renderDocs();
     renderReports();
     renderMilestones();
