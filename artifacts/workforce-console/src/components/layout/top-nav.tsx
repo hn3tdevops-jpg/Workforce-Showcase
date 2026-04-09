@@ -188,7 +188,7 @@ export function TopNav() {
   const { settings } = useBusinessSettings();
 
   const activeBusiness = session?.memberships.find(
-    (m) => m.business_id === session.active_business_id
+    (m: any) => m.business_id === session.active_business_id
   );
   const businessDisplayName =
     settings?.display_name || activeBusiness?.business_name || activeBusiness?.business_id;
@@ -237,7 +237,7 @@ export function TopNav() {
                 Switch Business
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-border/50" />
-              {session?.memberships.map((membership) => (
+              {session?.memberships.map((membership: any) => (
                 <DropdownMenuItem
                   key={membership.business_id}
                   onClick={() => switchBusiness(membership.business_id)}
@@ -325,6 +325,17 @@ export function TopNav() {
                 </a>
               </DropdownMenuItem>
             )}
+
+            <DropdownMenuItem className="gap-2 cursor-pointer text-sm" asChild>
+              <a
+                href="/developer_hub/index.html"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                Developer Hub
+              </a>
+            </DropdownMenuItem>
 
             <DropdownMenuItem className="gap-2 cursor-pointer text-sm" asChild>
               <a

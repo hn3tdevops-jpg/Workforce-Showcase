@@ -21,12 +21,6 @@ export interface LoginRequest {
 export interface LoginResponse {
   access_token: string;
   token_type: string;
-  business_id?: string;
-  user?: {
-    id: string;
-    email: string;
-    is_active?: boolean;
-  };
 }
 
 export interface SwitchBusinessRequest {
@@ -35,8 +29,8 @@ export interface SwitchBusinessRequest {
 
 export interface Membership {
   business_id: string;
-  business_name?: string;
-  role?: string;
+  business_name: string;
+  role: string;
 }
 
 export interface SessionInfo {
@@ -44,7 +38,6 @@ export interface SessionInfo {
   email: string;
   first_name?: string;
   last_name?: string;
-  is_active?: boolean;
   memberships: Membership[];
   active_business_id?: string;
   roles?: string[];
@@ -72,7 +65,6 @@ export interface Task {
   task_type?: string;
   due_date?: string;
   assigned_to?: string;
-  assigned_user_id?: string;
   created_at?: string;
   location_id?: string;
   room_id?: string;
@@ -90,35 +82,33 @@ export interface Assignment {
 
 export interface Shift {
   id: string;
-  location_id?: string;
+  title?: string;
   start_time: string;
   end_time: string;
-  role?: string;
   status?: string;
-  employee_id?: string;
-  employee_name?: string;
+  role?: string;
+  location_id?: string;
+  capacity?: number;
+  filled?: number;
   created_at?: string;
 }
 
-export interface BootstrapRequest {
-  business_name: string;
-  location_name: string;
-  admin_email: string;
-  admin_password: string;
-}
+export type ListRoomsParams = {
+  skip?: number;
+  limit?: number;
+};
 
-export interface BootstrapResponse {
-  business_id: string;
-  location_id: string;
-  user_id: string;
-}
+export type ListTasksParams = {
+  skip?: number;
+  limit?: number;
+};
 
-export interface DashboardSummary {
-  total_rooms?: number;
-  rooms_clean?: number;
-  rooms_dirty?: number;
-  rooms_occupied?: number;
-  open_tasks?: number;
-  in_progress_tasks?: number;
-  completed_tasks?: number;
-}
+export type ListAssignmentsParams = {
+  skip?: number;
+  limit?: number;
+};
+
+export type ListShiftsParams = {
+  skip?: number;
+  limit?: number;
+};

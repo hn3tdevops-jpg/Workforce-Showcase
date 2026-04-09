@@ -29,6 +29,8 @@ import Inventory from "@/pages/inventory";
 import Communications from "@/pages/communications";
 import InviteClaim from "@/pages/invite";
 import NotFound from "@/pages/not-found";
+import { useAuth } from "@/lib/auth-context";
+import { WorkforceProjectManagerPage } from "@/modules/project-manager";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +92,10 @@ function Router() {
       <Route path="/bootstrap" component={Bootstrap} />
       <Route path="/invite/:token" component={InviteClaim} />
       <Route path="/app/*" component={ProtectedRoutes} />
+      <Route path="/superadmin/project-manager" component={() => {
+        const { isSuperAdmin } = useAuth();
+        return isSuperAdmin() ? <WorkforceProjectManagerPage /> : <NotFound />;
+      }} />
       <Route component={NotFound} />
     </Switch>
   );

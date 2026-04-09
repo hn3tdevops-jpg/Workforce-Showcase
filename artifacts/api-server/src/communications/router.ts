@@ -63,7 +63,13 @@ router.get("/summary", (req: Request, res: Response) => {
 // ── GET /communications ───────────────────────────────────────────────────────
 router.get("/", (req: Request, res: Response) => {
   const db = getDb();
-  const { type, priority, archived, target_type, limit = "100", skip = "0" } = req.query;
+  const type = Array.isArray(req.query.type) ? req.query.type[0] : req.query.type;
+  const priority = Array.isArray(req.query.priority) ? req.query.priority[0] : req.query.priority;
+  const archived = Array.isArray(req.query.archived) ? req.query.archived[0] : req.query.archived;
+  const target_type = Array.isArray(req.query.target_type) ? req.query.target_type[0] : req.query.target_type;
+  const limit = Number(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit ?? "100");
+  const skip = Number(Array.isArray(req.query.skip) ? req.query.skip[0] : req.query.skip ?? "0");
+
   const userId = (req.headers["x-user-id"] as string) ?? null;
 
   let where = "WHERE cm.business_id = ?";

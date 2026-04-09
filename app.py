@@ -2,7 +2,13 @@ from pathlib import Path
 from flask import Flask, send_from_directory, abort
 
 BASE_DIR = Path(__file__).resolve().parent
-DIST_DIR = BASE_DIR / "dist"
+import os
+
+FRONTEND_DIST = os.environ.get("FRONTEND_DIST_DIR")
+if FRONTEND_DIST:
+    DIST_DIR = Path(FRONTEND_DIST).resolve()
+else:
+    DIST_DIR = BASE_DIR / "dist"
 
 app = Flask(__name__, static_folder=None)
 

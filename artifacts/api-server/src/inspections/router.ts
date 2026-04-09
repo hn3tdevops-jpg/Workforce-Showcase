@@ -35,7 +35,12 @@ router.get("/rooms", (req: Request, res: Response) => {
 /** GET /inspections */
 router.get("/", (req: Request, res: Response) => {
   const db = getDb();
-  const { status, location_id, room_id, limit = 100, skip = 0 } = req.query;
+  const status = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+  const room_id = Array.isArray(req.query.room_id) ? req.query.room_id[0] : req.query.room_id;
+  const limit = Number(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit ?? "100");
+  const skip = Number(Array.isArray(req.query.skip) ? req.query.skip[0] : req.query.skip ?? "0");
+
 
   let where = "WHERE ri.business_id = 'biz-silver-sands'";
   const params: unknown[] = [];

@@ -436,7 +436,8 @@ router.delete("/role-assignments/:id", (req: Request, res: Response) => {
 
 /** GET /workforce/access-context?user_id=... */
 router.get("/access-context", (req: Request, res: Response) => {
-  const user_id = req.query.user_id as string | undefined;
+  const user_id = Array.isArray(req.query.user_id) ? req.query.user_id[0] : req.query.user_id;
+
   if (!user_id) return bad(res, "user_id query parameter required");
 
   const db = getDb();
@@ -502,7 +503,12 @@ router.get("/access-context", (req: Request, res: Response) => {
 /** GET /workforce/audit */
 router.get("/audit", (req: Request, res: Response) => {
   const db = getDb();
-  const { event_key, target_id, user_id, limit = 50, skip = 0 } = req.query;
+  const event_key = Array.isArray(req.query.event_key) ? req.query.event_key[0] : req.query.event_key;
+  const target_id = Array.isArray(req.query.target_id) ? req.query.target_id[0] : req.query.target_id;
+  const user_id = Array.isArray(req.query.user_id) ? req.query.user_id[0] : req.query.user_id;
+  const limit = Number(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit ?? "50");
+  const skip = Number(Array.isArray(req.query.skip) ? req.query.skip[0] : req.query.skip ?? "0");
+
 
   let where = "WHERE business_id = 'biz-silver-sands'";
   const params: unknown[] = [];

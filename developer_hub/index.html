@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workforce Developer Hub</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-soft: #111831;
+      --panel: rgba(18, 26, 52, 0.9);
+      --panel-2: rgba(13, 19, 39, 0.95);
+      --border: rgba(140, 162, 255, 0.18);
+      --border-strong: rgba(140, 162, 255, 0.35);
+      --text: #ecf2ff;
+      --muted: #9fb0d7;
+      --accent: #62b0ff;
+      --accent-2: #7c7cff;
+      --good: #2ed3a4;
+      --warn: #ffc857;
+      --bad: #ff7e8a;
+      --shadow: 0 24px 60px rgba(0,0,0,0.35);
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+      --maxw: 1320px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(98, 176, 255, 0.15), transparent 28%),
+        radial-gradient(circle at top right, rgba(124, 124, 255, 0.12), transparent 25%),
+        linear-gradient(180deg, #070b16 0%, #0b1020 45%, #0d1326 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input, select { font: inherit; }
+
+    .shell {
+      width: min(100% - 28px, var(--maxw));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+      background: rgba(7, 11, 22, 0.78);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(98,176,255,0.24), rgba(124,124,255,0.22));
+      border: 1px solid var(--border-strong);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 0.75rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .nav a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: var(--muted);
+      border: 1px solid transparent;
+      transition: 0.2s ease;
+    }
+
+    .nav a:hover {
+      color: var(--text);
+      border-color: var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .hero {
+      padding: 34px 0 22px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .hero-card, .panel {
+      background: linear-gradient(180deg, rgba(18,26,52,0.86), rgba(10,16,32,0.94));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-card {
+      padding: 34px;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -40px -50px auto;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(98,176,255,0.17), transparent 58%);
+      z-index: -1;
+    }
+
+    .hero h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.45rem);
+      line-height: 1.02;
+      letter-spacing: -0.035em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 1.02rem;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 13px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      background: rgba(255,255,255,0.03);
+      transition: 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,0.26);
+      background: rgba(255,255,255,0.06);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, rgba(98,176,255,0.28), rgba(124,124,255,0.24));
+    }
+
+    .hero-side {
+      padding: 26px;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .stat {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .stat .label {
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-bottom: 8px;
+    }
+
+    .stat .value {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+      background: currentColor;
+    }
+
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+
+    .content {
+      display: grid;
+      gap: 22px;
+      padding: 10px 0 42px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: -0.03em;
+    }
+
+    .section-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 800px;
+      line-height: 1.6;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .field, .select {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      min-width: 0;
+    }
+
+    .field input, .select select {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .field { flex: 1 1 320px; }
+    .select { flex: 0 1 230px; }
+    .select select { appearance: none; }
+
+    .panel-body {
+      padding: 24px;
+    }
+
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .doc-card, .report-card, .milestone, .activity-card {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+      display: grid;
+      gap: 12px;
+    }
+
+    .doc-card:hover, .report-card:hover, .activity-card:hover {
+      border-color: rgba(140,162,255,0.3);
+      transform: translateY(-1px);
+      transition: 0.18s ease;
+    }
+
+    .doc-top, .report-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .doc-type, .status-badge {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .status-badge.green { color: var(--good); }
+    .status-badge.yellow { color: var(--warn); }
+    .status-badge.red { color: var(--bad); }
+    .status-badge.blue { color: var(--accent); }
+
+    .doc-card h3, .report-card h3, .milestone h3, .activity-card h3 {
+      margin: 0;
+      font-size: 1.04rem;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .muted {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(98,176,255,0.09);
+      border: 1px solid rgba(98,176,255,0.18);
+      color: #cfe5ff;
+      font-size: 0.84rem;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 22px;
+    }
+
+    .report-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .report-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .mini-stat {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .mini-stat strong {
+      display: block;
+      font-size: 1.35rem;
+      margin-top: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .milestones {
+      display: grid;
+      gap: 14px;
+    }
+
+    .progress {
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .progress > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    }
+
+    .activity-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .activity-item {
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+      display: grid;
+      gap: 8px;
+    }
+
+    .activity-item strong {
+      font-size: 0.96rem;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.7;
+      padding: 8px 2px 0;
+    }
+
+    .empty-state {
+      padding: 32px 18px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed rgba(255,255,255,0.12);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    code.inline {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(255,255,255,0.06);
+      padding: 0.2em 0.45em;
+      border-radius: 8px;
+      color: #d7e6ff;
+      font-size: 0.92em;
+    }
+
+    @media (max-width: 1120px) {
+      .hero-grid, .split, .docs-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 780px) {
+      .topbar-inner, .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .hero-card, .hero-side, .panel-body {
+        padding: 20px;
+      }
+
+      .stat-grid, .report-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .nav {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">WF</div>
+        <div class="brand-copy">
+          <div class="eyebrow">Developer Workspace</div>
+          <div class="brand-title">Workforce Developer Hub</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#overview">Overview</a>
+        <a href="#docs">Docs Library</a>
+        <a href="#reports">Progress Reports</a>
+        <a href="#milestones">Milestones</a>
+        <a href="../docs/ADMIN/frontend/README.frontend-deploy.md">Frontend Docs</a>
+        <a href="../scripts/preview_frontend.sh">Local Preview</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero" id="overview">
+      <div class="hero-grid">
+        <article class="hero-card">
+          <div class="eyebrow">Static internal portal</div>
+          <h1>Centralize Workforce build docs, milestones, and delivery signals.</h1>
+          <p>
+            This page is designed as a single-file developer hub for your Workforce platform. It gives you a clean docs library,
+            searchable project references, milestone tracking, and a progress report area you can update quickly without a backend.
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#docs">Open Docs Library</a>
+            <a class="btn" href="#reports">Review Progress</a>
+          </div>
+        </article>
+
+        <aside class="hero-card hero-side">
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="label">Tracked documents</div>
+              <div class="value" id="docCount">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Active reports</div>
+              <div class="value" id="reportCount">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Milestones</div>
+              <div class="value" id="milestoneCount">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Current phase</div>
+              <div class="value" id="phaseLabel">Phase 1</div>
+            </div>
+          </div>
+          <div>
+            <div class="eyebrow">Project signal</div>
+            <div class="status-strip">
+              <div class="pill"><span class="dot good"></span> RBAC foundation active</div>
+              <div class="pill"><span class="dot warn"></span> Frontend polish in progress</div>
+              <div class="pill"><span class="dot good"></span> Docs hub ready</div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="content">
+      <article class="panel" id="docs">
+        <div class="panel-body">
+          <div class="section-head">
+            <div>
+              <h2>Docs Library</h2>
+              <p>
+                Use this section as your internal documentation index. Edit the document array near the bottom of this file to add new plans,
+                specs, implementation notes, runbooks, and install packages.
+              </p>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <label class="field">
+              <span>🔎</span>
+              <input id="docSearch" type="search" placeholder="Search docs by title, category, tag, or owner" />
+            </label>
+            <label class="select">
+              <select id="docCategoryFilter">
+                <option value="all">All categories</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="docs-grid" id="docsGrid"></div>
+        </div>
+      </article>
+
+      <div class="split">
+        <article class="panel" id="reports">
+          <div class="panel-body">
+            <div class="section-head">
+              <div>
+                <h2>Progress Reports</h2>
+                <p>
+                  Track what has been completed, what is underway, and what is blocked. This section is built for status snapshots, rollout notes,
+                  and implementation summaries.
+                </p>
+              </div>
+            </div>
+
+            <div class="report-stats">
+              <div class="mini-stat">
+                Open work
+                <strong id="openWorkCount">0</strong>
+              </div>
+              <div class="mini-stat">
+                In review
+                <strong id="reviewCount">0</strong>
+              </div>
+              <div class="mini-stat">
+                Completed
+                <strong id="doneCount">0</strong>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <label class="field">
+                <span>📄</span>
+                <input id="reportSearch" type="search" placeholder="Search reports, modules, or notes" />
+              </label>
+              <label class="select">
+                <select id="reportStatusFilter">
+                  <option value="all">All statuses</option>
+                  <option value="in-progress">In progress</option>
+                  <option value="review">Review</option>
+                  <option value="done">Completed</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="report-grid" id="reportGrid"></div>
+          </div>
+        </article>
+
+        <article class="panel" id="milestones">
+          <div class="panel-body">
+            <div class="section-head">
+              <div>
+                <h2>Milestones & Activity</h2>
+                <p>
+                  Use this area for phase-level checkpoints, active priorities, and a small delivery feed that gives quick visibility into what moved.
+                </p>
+              </div>
+            </div>
+
+            <div class="milestones" id="milestoneList"></div>
+
+            <div style="height:18px"></div>
+
+            <div class="activity-card">
+              <h3>Recent activity</h3>
+              <div class="activity-list" id="activityList"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="footer-note">
+        Deployment note: this is a self-contained static page. You can upload <code class="inline">index.html</code> directly,
+        or rename it to match your existing tab route. To customize the content, update the <code class="inline">docsData</code>,
+        <code class="inline">reportData</code>, <code class="inline">milestoneData</code>, and <code class="inline">activityData</code>
+        arrays in the script at the bottom of the file.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const docsData = [
+      {
+        title: "HN3T Master Plan",
+        type: "master plan",
+        category: "architecture",
+        owner: "Core Platform",
+        updated: "2026-04-04",
+        summary: "Primary source-of-truth plan for Workforce architecture, sequencing, tenancy boundaries, and implementation direction.",
+        tags: ["tenancy", "rbac", "roadmap", "backend"],
+        href: "#"
+      },
+      {
+        title: "User vs Employee Linkage Blueprint",
+        type: "blueprint",
+        category: "identity",
+        owner: "Core Platform",
+        updated: "2026-04-04",
+        summary: "Defines the separation between user-controlled accounts and business-controlled employee files, including active linkage behavior.",
+        tags: ["identity", "employee", "permissions"],
+        href: "#"
+      },
+      {
+        title: "Hospitable Ops Integration Plan",
+        type: "integration",
+        category: "operations",
+        owner: "Ops Systems",
+        updated: "2026-03-12",
+        summary: "Integration path for housekeeping operations, inspections, checklists, and maintenance signals inside the Workforce platform.",
+        tags: ["hospitality", "ops", "rooms"],
+        href: "#"
+      },
+      {
+        title: "Frontend Navigation & Dark Theme Spec",
+        type: "ui spec",
+        category: "frontend",
+        owner: "Experience",
+        updated: "2026-03-26",
+        summary: "Navigation cleanup, collapsible menus, business selector behavior, and dark theme design direction for the admin interface.",
+        tags: ["navigation", "theme", "ui"],
+        href: "#"
+      },
+      {
+        title: "OpenAI Communication Center Plan",
+        type: "integration",
+        category: "ai",
+        owner: "AI Systems",
+        updated: "2026-03-29",
+        summary: "Backend contract and communication patterns for connecting the frontend communication center to OpenAI-driven workflows and studio actions.",
+        tags: ["openai", "assistant", "studio"],
+        href: "#"
+      },
+      {
+        title: "Copilot Execution Rules",
+        type: "runbook",
+        category: "developer ops",
+        owner: "Developer Workflow",
+        updated: "2026-04-04",
+        summary: "Guardrails for plan-driven patch generation, progress logging, safe repository changes, and repeatable Copilot execution flows.",
+        tags: ["copilot", "runbook", "patches"],
+        href: "#"
+      }
+    ];
+
+    const reportData = [
+      {
+        title: "Backend Foundation / Tenancy",
+        status: "done",
+        statusLabel: "Completed",
+        tone: "green",
+        module: "Core API",
+        date: "2026-04-04",
+        summary: "Core tenant and scope direction is established, with role-driven access patterns aligned to business and location ownership.",
+        bullets: [
+          "Tenant isolation treated as non-negotiable",
+          "Roles remain the authority for permissions",
+          "User and employee records modeled as related but separate"
+        ]
+      },
+      {
+        title: "RBAC Expansion Audit",
+        status: "review",
+        statusLabel: "Review",
+        tone: "blue",
+        module: "Security",
+        date: "2026-04-04",
+        summary: "Role coverage and superadmin access validation are being hardened against the current permission surface.",
+        bullets: [
+          "Audit pass underway",
+          "Superadmin coverage expected to be exhaustive",
+          "Needs implementation verification in active repo"
+        ]
+      },
+      {
+        title: "Developer Hub Static UI",
+        status: "done",
+        statusLabel: "Completed",
+        tone: "green",
+        module: "Internal Web",
+        date: "2026-04-04",
+        summary: "Initial developer portal delivered as a static page with docs indexing, progress reporting, milestone tracking, and search utilities.",
+        bullets: [
+          "Single-file deployment",
+          "Docs and reports are editable in-script",
+          "Ready for immediate upload to web tab"
+        ]
+      },
+      {
+        title: "Frontend API Client Regeneration Fix",
+        status: "in-progress",
+        statusLabel: "In progress",
+        tone: "yellow",
+        module: "Frontend",
+        date: "2026-04-04",
+        summary: "Generated client typing drift is being corrected so shared schemas and route params compile cleanly again.",
+        bullets: [
+          "Schema export mismatch identified",
+          "Type generation workflow needs normalization",
+          "Follow-up patch remains active"
+        ]
+      }
+    ];
+
+    const milestoneData = [
+      {
+        title: "Phase 1 — Backend Foundation",
+        percent: 82,
+        note: "Tenancy boundaries, RBAC direction, and account-vs-employee separation are substantially defined."
+      },
+      {
+        title: "Phase 2 — Internal Tools & Dev Experience",
+        percent: 54,
+        note: "Developer surface, operational docs, command tooling, and admin support interfaces are taking shape."
+      },
+      {
+        title: "Phase 3 — Frontend Workflow Integration",
+        percent: 38,
+        note: "Navigation cleanup, API client consistency, and module-level UI integration remain active."
+      }
+    ];
+
+    const activityData = [
+      {
+        title: "Developer hub shell created",
+        meta: "UI / Today",
+        body: "Base internal portal now includes docs library, reports, milestones, and live filtering."
+      },
+      {
+        title: "Docs structure standardized",
+        meta: "Documentation / Today",
+        body: "Portal is arranged around plans, blueprints, runbooks, integration docs, and implementation tracking."
+      },
+      {
+        title: "Progress reporting surfaced",
+        meta: "Delivery / Today",
+        body: "Open work, review items, completed items, and milestone completion are visible in one page."
+      }
+    ];
+
+    const docsGrid = document.getElementById('docsGrid');
+    const reportGrid = document.getElementById('reportGrid');
+    const milestoneList = document.getElementById('milestoneList');
+    const activityList = document.getElementById('activityList');
+    const docSearch = document.getElementById('docSearch');
+    const docCategoryFilter = document.getElementById('docCategoryFilter');
+    const reportSearch = document.getElementById('reportSearch');
+    const reportStatusFilter = document.getElementById('reportStatusFilter');
+
+    const categories = [...new Set(docsData.map(doc => doc.category))].sort();
+    categories.forEach(category => {
+      const option = document.createElement('option');
+      option.value = category;
+      option.textContent = category[0].toUpperCase() + category.slice(1);
+      docCategoryFilter.appendChild(option);
+    });
+
+    function renderDocs() {
+      const query = docSearch.value.trim().toLowerCase();
+      const category = docCategoryFilter.value;
+      const filtered = docsData.filter(doc => {
+        const haystack = [doc.title, doc.type, doc.category, doc.owner, doc.summary, ...(doc.tags || [])]
+          .join(' ')
+          .toLowerCase();
+        const matchesQuery = !query || haystack.includes(query);
+        const matchesCategory = category === 'all' || doc.category === category;
+        return matchesQuery && matchesCategory;
+      });
+
+      docsGrid.innerHTML = filtered.length ? filtered.map(doc => `
+        <article class="doc-card">
+          <div class="doc-top">
+            <div class="doc-type">${doc.type}</div>
+            <div class="meta">${formatDate(doc.updated)}</div>
+          </div>
+          <div>
+            <h3>${doc.title}</h3>
+          </div>
+          <div class="meta">
+            <span>${capitalize(doc.category)}</span>
+            <span>•</span>
+            <span>${doc.owner}</span>
+          </div>
+          <div class="muted">${doc.summary}</div>
+          <div class="tags">${doc.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}</div>
+          <div>
+            <a class="btn" href="${doc.href}">Open document</a>
+          </div>
+        </article>
+      `).join('') : `<div class="empty-state">No documents match the current search.</div>`;
+
+      document.getElementById('docCount').textContent = docsData.length;
+    }
+
+    function renderReports() {
+      const query = reportSearch.value.trim().toLowerCase();
+      const status = reportStatusFilter.value;
+
+      const filtered = reportData.filter(report => {
+        const haystack = [report.title, report.status, report.module, report.summary, ...(report.bullets || [])]
+          .join(' ')
+          .toLowerCase();
+        const matchesQuery = !query || haystack.includes(query);
+        const matchesStatus = status === 'all' || report.status === status;
+        return matchesQuery && matchesStatus;
+      });
+
+      reportGrid.innerHTML = filtered.length ? filtered.map(report => `
+        <article class="report-card">
+          <div class="report-top">
+            <div>
+              <h3>${report.title}</h3>
+              <div class="meta"><span>${report.module}</span><span>•</span><span>${formatDate(report.date)}</span></div>
+            </div>
+            <div class="status-badge ${report.tone}">${report.statusLabel}</div>
+          </div>
+          <div class="muted">${report.summary}</div>
+          <div class="tags">
+            ${(report.bullets || []).map(item => `<span class="tag">${item}</span>`).join('')}
+          </div>
+        </article>
+      `).join('') : `<div class="empty-state">No progress reports match the current filters.</div>`;
+
+      const openCount = reportData.filter(report => report.status === 'in-progress' || report.status === 'blocked').length;
+      const reviewCount = reportData.filter(report => report.status === 'review').length;
+      const doneCount = reportData.filter(report => report.status === 'done').length;
+
+      document.getElementById('reportCount').textContent = reportData.length;
+      document.getElementById('openWorkCount').textContent = openCount;
+      document.getElementById('reviewCount').textContent = reviewCount;
+      document.getElementById('doneCount').textContent = doneCount;
+    }
+
+    function renderMilestones() {
+      milestoneList.innerHTML = milestoneData.map(item => `
+        <article class="milestone">
+          <div class="report-top">
+            <h3>${item.title}</h3>
+            <div class="status-badge blue">${item.percent}%</div>
+          </div>
+          <div class="progress"><span style="width:${item.percent}%"></span></div>
+          <div class="muted">${item.note}</div>
+        </article>
+      `).join('');
+
+      activityList.innerHTML = activityData.map(item => `
+        <div class="activity-item">
+          <strong>${item.title}</strong>
+          <div class="meta">${item.meta}</div>
+          <div class="muted">${item.body}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('milestoneCount').textContent = milestoneData.length;
+      document.getElementById('phaseLabel').textContent = milestoneData[0]?.title.replace(' — ', ' / ') || 'Phase 1';
+    }
+
+    function capitalize(value) {
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function formatDate(value) {
+      const date = new Date(value + 'T12:00:00');
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    docSearch.addEventListener('input', renderDocs);
+    docCategoryFilter.addEventListener('change', renderDocs);
+    reportSearch.addEventListener('input', renderReports);
+    reportStatusFilter.addEventListener('change', renderReports);
+
+    renderDocs();
+    renderReports();
+    renderMilestones();
+  </script>
+</body>
+</html>

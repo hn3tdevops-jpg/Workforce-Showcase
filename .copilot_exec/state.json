@@ -1,0 +1,13 @@
+{
+  "rbac_tasks": {
+    "modified_files": [
+      "artifacts/api-server/src/hospitable/router.ts"
+    ],
+    "status": "implemented",
+    "notes": "GET /tasks now consults local session and /auth/me/access-context to enforce tasks:read or tasks:write:own and location scoping. Additional TypeScript typecheck failures exist across the api-server package unrelated to this change."
+  },
+  "tests": {
+    "added": false,
+    "reason": "No test harness found for api-server in repository (no test scripts). Next step: add unit/integration tests using the project's preferred test runner (Jest/Mocha) and wire them into pnpm scripts."
+  }
+}

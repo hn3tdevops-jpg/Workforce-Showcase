@@ -540,7 +540,7 @@ function LinksTab() {
                           : undefined;
                         linkActionMutation.mutate({ linkId: link.id, action, reason });
                       }}
-                      class={`px-2 py-1 rounded border text-xs font-medium capitalize transition-colors ${LINK_ACTION_COLORS[action] ?? ""}`}
+                      className={`px-2 py-1 rounded border text-xs font-medium capitalize transition-colors ${LINK_ACTION_COLORS[action] ?? ""}`}
                     >
                       {action}
                     </button>
@@ -629,7 +629,7 @@ function RoleAssignmentsTab() {
             let perms: string[] = [];
             try { perms = JSON.parse(ra.permissions); } catch { /* ignore */ }
             return (
-              <div key={ra.id} class={`border rounded-lg p-4 ${ra.is_active ? "border-gray-200" : "border-gray-100 bg-gray-50 opacity-60"}`}>
+              <div key={ra.id} className={`border rounded-lg p-4 ${ra.is_active ? "border-gray-200" : "border-gray-100 bg-gray-50 opacity-60"}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -851,7 +851,7 @@ function AccessContextPanel() {
 
   const [selectedUserId, setSelectedUserId] = useState("");
 
-  const { data: ctx, isLoading, refetch } = useQuery({
+  const { data: ctx, isLoading, refetch } = useQuery<any>({
     queryKey: ["workforce-access-context", selectedUserId],
     queryFn: () => apiFetch(`/workforce/access-context?user_id=${selectedUserId}`),
     enabled: !!selectedUserId,
@@ -890,18 +890,18 @@ function AccessContextPanel() {
       {ctx && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            {ctx.has_access ? (
+            {(ctx as any).has_access ? (
               <CheckCircle2 className="w-4 h-4 text-green-600" />
             ) : (
               <AlertCircle className="w-4 h-4 text-red-500" />
             )}
             <span className="text-sm text-indigo-800">
-              {ctx.has_access
-                ? `${ctx.active_scope_count} active employment scope(s)`
+              {(ctx as any).has_access
+                ? `${(ctx as any).active_scope_count} active employment scope(s)`
                 : "No active employment access"}
             </span>
           </div>
-          {ctx.scopes?.map((s: any) => (
+          {(ctx as any).scopes?.map((s: any) => (
             <div key={s.employee_profile_id} className="bg-white rounded-lg border border-indigo-200 p-3">
               <div className="text-xs font-semibold text-indigo-700 mb-1">{s.employee_name} · {s.employee_code} · {s.job_title}</div>
               <div className="flex flex-wrap gap-1">

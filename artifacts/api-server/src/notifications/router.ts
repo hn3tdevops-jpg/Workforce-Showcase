@@ -8,7 +8,9 @@ function ok(res: Response, data: unknown, status = 200) { res.status(status).jso
 /** GET /notifications */
 router.get("/", (req: Request, res: Response) => {
   const db = getDb();
-  const { unread_only, limit = 30 } = req.query;
+  const unread_only = Array.isArray(req.query.unread_only) ? req.query.unread_only[0] : req.query.unread_only;
+  const limit = Number(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit ?? "30");
+
   let where = "WHERE 1=1";
   if (unread_only === "true") where += " AND read_at IS NULL";
   ok(res, db.prepare(`

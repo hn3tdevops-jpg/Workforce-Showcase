@@ -297,7 +297,7 @@ export default function Maintenance() {
     queryKey: ["/maintenance", tab],
     queryFn: async () => {
       const results = await Promise.all(
-        currentTab.statuses.map(s => fetchApi(`/maintenance/?status=${s}`))
+        currentTab.statuses.map(s => fetchApi<MaintIssue[]>(`/maintenance/?status=${s}`))
       );
       return results.flat();
     },

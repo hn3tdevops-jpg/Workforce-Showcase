@@ -47,6 +47,27 @@ Staging smoke verification (local preview, non-production):
 - Note: /does-not-exist returned 404 under python3 -m http.server; this is expected for a simple static server and is not a validation of SPA rewrite behavior.
 
 How the artifact is restored (rollback) — operator-run, repo-scoped commands
+
+Local preview (developer):
+
+1. Build the frontend and copy the public output into the repo root dist/:
+
+   PORT=5173 BASE_PATH=/ pnpm --filter @workspace/workforce-console run build
+   rsync -av --delete artifacts/workforce-console/dist/public/ ./dist/
+
+2. Start the Flask preview server that serves ./dist (or set FRONTEND_DIST_DIR):
+
+   FRONTEND_DIST_DIR="$(pwd)/dist" python -m flask --app app run --host=0.0.0.0 --port=5000
+
+Or use the provided helper script (recommended):
+
+   ./scripts/preview_frontend.sh
+
+Notes:
+- Vite's config requires PORT and BASE_PATH to be set when building; the helper script sets sensible defaults.
+- The script copies build output to ./dist and runs the local Flask wrapper (app.py) so SPA routing and static routes behave the same as production.
+
+How the artifact is restored (rollback) — operator-run, repo-scoped commands
 From the repository root (/home/hn3t/workforce_frontend_app):
 
 scripts/restore_operational_artifact.sh "artifacts/operational/<timestamp>"
