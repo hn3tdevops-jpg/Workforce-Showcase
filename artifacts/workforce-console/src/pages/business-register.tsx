@@ -27,7 +27,7 @@ type BizState = {
 export default function BusinessRegister() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { session } = useAuth();
+  const { session, switchBusiness } = useAuth();
 
   const [step, setStep] = useState<number>(1);
   const [state, setState] = useState<BizState>({ name: "", display_name: "", type: "", legal_class: "", email: session?.email ?? "", phone: "", contact_name: session?.first_name ? `${session.first_name} ${session.last_name ?? ""}` : "" });
@@ -85,7 +85,26 @@ export default function BusinessRegister() {
 
       toast({ title: "Business created", description: "Business registration successful" });
 
-      // If API returns business_id, optionally switch to it - skipping automatic switch for safety
+      // If API returns an access token, use it to authenticate immediately
+      if (res?.access_token) {
+        localStorage.setItem("workforce_token", res.access_token);
+        // Redirect into app
+        setLocation("/app/dashboard");
+        return;
+      }
+
+      // If API returns a business_id, attempt to switch to it
+      if (res?.business_id && typeof switchBusiness === "function") {
+        try {
+          await switchBusiness(res.business_id);
+          setLocation("/app/dashboard");
+          return;
+        } catch {
+          // Fall through to settings on failure
+        }
+      }
+
+      // Default: go to settings
       setLocation("/app/settings");
     } catch (err: any) {
       setError(err?.message || "Failed to create business. Please try again.");
