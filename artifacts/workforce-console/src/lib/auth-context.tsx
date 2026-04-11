@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "./api-client";
-import { SessionInfo, LoginRequest } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { SessionInfo, LoginRequest } from "../../../../lib/api-client-react/src/generated/api.schemas";
 import { useToast } from "@/hooks/use-toast";
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
-const DEMO_SESSION: SessionInfo = {
+type LocalSession = SessionInfo & { is_active?: boolean; is_superadmin?: boolean };
+
+const DEMO_SESSION: LocalSession = {
   id: "user-001",
   email: "manager@silversands.com",
   first_name: "Sarah",
@@ -61,7 +63,7 @@ interface ApiLoginResponse {
   user?: ApiUserSummary;
 }
 
-function mapToSessionInfo(data: ApiMeResponse): SessionInfo {
+function mapToSessionInfo(data: ApiMeResponse): LocalSession {
   const id = data.user?.id ?? data.id ?? "";
   const email = data.user?.email ?? data.email ?? "";
   const first_name = data.user?.first_name ?? data.first_name;
@@ -134,7 +136,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [session, setSession] = useState<LocalSession | null>(null);
   const [employmentScope, setEmploymentScope] = useState<EmploymentScope | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -241,17 +243,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const hasPermission = (permission: string) =>
     session?.permissions?.some(
-      (p) => p === permission || p === "owner:*" || p === "business:owner"
+      (p: any) => p === permission || p === "owner:*" || p === "business:owner"
     ) ?? false;
 
   const hasRole = (role: string) =>
-    session?.roles?.some((r) => r.toLowerCase() === role.toLowerCase()) ?? false;
+    session?.roles?.some((r: any) => r.toLowerCase() === role.toLowerCase()) ?? false;
 
   const isOwner = () =>
     hasRole("owner") ||
     hasPermission("owner:*") ||
     hasPermission("business:owner") ||
-    (session?.memberships?.some((m) => m.role?.toLowerCase() === "owner") ?? false);
+    (session?.memberships?.some((m: any) => m.role?.toLowerCase() === "owner") ?? false);
 
   const isSuperAdmin = () =>
     hasRole("superadmin") ||

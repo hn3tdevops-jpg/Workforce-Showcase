@@ -43,7 +43,9 @@ function recalcStatus(db: ReturnType<typeof getDb>, shiftId: string) {
 
 router.get("/shifts/", (req: Request, res: Response) => {
   const db = getDb();
-  const { location_id, week_start } = req.query as Record<string, string>;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+  const week_start = Array.isArray(req.query.week_start) ? req.query.week_start[0] : req.query.week_start;
+
 
   let sql = "SELECT * FROM shifts WHERE 1=1";
   const vals: unknown[] = [];

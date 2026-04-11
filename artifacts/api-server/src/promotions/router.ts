@@ -108,7 +108,9 @@ router.delete("/criteria/:id", (req: Request, res: Response) => {
 
 router.get("/history", (req: Request, res: Response) => {
   const db = getDb();
-  const { staff_id, limit = 50, skip = 0 } = req.query;
+  const staff_id = Array.isArray(req.query.staff_id) ? req.query.staff_id[0] : req.query.staff_id;
+  const limit = Number(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit ?? "50");
+  const skip = Number(Array.isArray(req.query.skip) ? req.query.skip[0] : req.query.skip ?? "0");
   let sql = `
     SELECT p.*,
       ft.tier_name AS from_tier_name, ft.track_name AS from_track_name,
@@ -198,7 +200,9 @@ router.get("/staff-progress", (_req: Request, res: Response) => {
 
 router.get("/recognition", (req: Request, res: Response) => {
   const db = getDb();
-  const { staff_id, limit = 50, skip = 0 } = req.query;
+  const staff_id = Array.isArray(req.query.staff_id) ? req.query.staff_id[0] : req.query.staff_id;
+  const limit = Number(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit ?? "50");
+  const skip = Number(Array.isArray(req.query.skip) ? req.query.skip[0] : req.query.skip ?? "0");
   let sql = `
     SELECT r.*,
       ls.first_name || ' ' || ls.last_name AS staff_name,

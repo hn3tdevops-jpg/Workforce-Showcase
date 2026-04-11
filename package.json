@@ -10,11 +10,14 @@
   },
   "private": true,
   "devDependencies": {
+    "playwright": "^1.59.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
+    "@radix-ui/primitive": "^1.1.3",
+    "class-variance-authority": "^0.7.1",
     "date-fns": "^3.6.0",
     "framer-motion": "catalog:",
     "recharts": "^2.15.4"

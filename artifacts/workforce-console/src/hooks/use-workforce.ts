@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
-import { Room, Task, Assignment, Shift } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Room, Task, Assignment, Shift } from "../../../../lib/api-client-react/src/generated/api.schemas";
 
 export interface RelatedEntity {
   entity_id: string;

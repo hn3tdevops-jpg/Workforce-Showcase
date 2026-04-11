@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,13 +133,18 @@ export default function Login() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-muted-foreground font-medium">Password</Label>
-                  <button
-                    type="button"
-                    onClick={() => setShowReset(true)}
-                    className="text-xs text-primary/70 hover:text-primary transition-colors underline-offset-4 hover:underline"
-                  >
-                    Forgot password?
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowReset(true)}
+                      className="text-xs text-primary/70 hover:text-primary transition-colors underline-offset-4 hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                    <Link href="/register" className="text-xs text-primary/70 hover:text-primary transition-colors underline-offset-4 hover:underline">
+                      Create account
+                    </Link>
+                  </div>
                 </div>
                 <Input
                   id="password"
@@ -179,6 +184,12 @@ export default function Login() {
             </form>
           </CardContent>
         </Card>
+
+        <div className="mt-4 text-center text-xs text-muted-foreground">
+          <p>
+            New here? <Link href="/register" className="text-primary underline">Create an account</Link>
+          </p>
+        </div>
       </div>
 
       {showReset && (

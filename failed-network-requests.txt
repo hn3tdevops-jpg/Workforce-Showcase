@@ -1,0 +1,4 @@
+[ ]
+
+# Note
+No network failures captured because Playwright run terminated early. See playwright-or-browser-test-log.txt.

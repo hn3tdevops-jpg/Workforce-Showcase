@@ -1,5 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
+  "references": [
+    { "path": "../api-zod" }
+  ],
   "compilerOptions": {
     "composite": true,
     "declarationMap": true,

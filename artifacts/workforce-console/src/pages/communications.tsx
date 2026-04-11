@@ -164,7 +164,7 @@ function ComposeDialog({
       priority,
       target_type: targetType as "ALL" | "DEPT" | "ROLE",
       target_value: targetType !== "ALL" ? targetValue.trim() : undefined,
-      is_pinned: isPinned,
+      is_pinned: isPinned ? 1 : 0,
       author_user_id: session?.id,
       author_ep_id: employmentScope?.employee_profile_id,
       author_name: employmentScope?.employee_name ?? session?.first_name,
@@ -364,7 +364,7 @@ function MessageCard({
   });
 
   const archiveMut = useMutation({
-    mutationFn: () => commsApi.update(msg.id, { is_archived: true } as Partial<CommMessage>),
+    mutationFn: () => commsApi.update(msg.id, { is_archived: 1 } as Partial<CommMessage>),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["comms", activeTab] });
       qc.invalidateQueries({ queryKey: ["comms:summary"] });
@@ -373,7 +373,7 @@ function MessageCard({
   });
 
   const pinMut = useMutation({
-    mutationFn: () => commsApi.update(msg.id, { is_pinned: !msg.is_pinned } as Partial<CommMessage>),
+    mutationFn: () => commsApi.update(msg.id, { is_pinned: msg.is_pinned ? 0 : 1 } as Partial<CommMessage>),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["comms", activeTab] }),
   });
 

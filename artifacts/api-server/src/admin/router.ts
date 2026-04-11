@@ -262,7 +262,10 @@ router.get("/permissions/matrix", (_req: Request, res: Response) => {
 // ── GET /admin/permissions/assignments ────────────────────────────────────────
 router.get("/permissions/assignments", (req: Request, res: Response) => {
   const db = getDb();
-  const { role, dept, scope } = req.query;
+  const role = Array.isArray(req.query.role) ? req.query.role[0] : req.query.role;
+  const dept = Array.isArray(req.query.dept) ? req.query.dept[0] : req.query.dept;
+  const scope = Array.isArray(req.query.scope) ? req.query.scope[0] : req.query.scope;
+
   let where = "WHERE era.is_active = 1";
   const params: unknown[] = [];
   if (role)  { where += " AND era.role_name = ?"; params.push(role); }

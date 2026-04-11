@@ -454,26 +454,29 @@ function ModelsPanel({ projectId }: { projectId: string }) {
 
       {/* tabs */}
       <div className="shrink-0 flex border-b border-border/50">
-        {modelTabs.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "flex-1 flex flex-col items-center gap-0.5 py-2 text-[9px] font-medium transition-colors border-b-2",
-              tab === t.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <t.icon className="w-3.5 h-3.5" />
-            <span>{t.label}</span>
-            {(t.count ?? 0) > 0 && (
-              <span className="bg-primary/20 text-primary rounded-full px-1 min-w-[14px] text-center leading-none py-0.5">
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
+        {modelTabs.map(t => {
+          const Icon = t.icon as any;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "flex-1 flex flex-col items-center gap-0.5 py-2 text-[9px] font-medium transition-colors border-b-2",
+                tab === t.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{t.label}</span>
+              {(t.count ?? 0) > 0 && (
+                <span className="bg-primary/20 text-primary rounded-full px-1 min-w-[14px] text-center leading-none py-0.5">
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* content */}
@@ -935,7 +938,7 @@ function ValidationPanel({ projectId }: { projectId: string }) {
         )}
 
         {!isLoading && issues.map(issue => {
-          const Icon = SEVERITY_ICON[issue.severity] ?? Info;
+          const Icon = (SEVERITY_ICON[issue.severity] ?? Info) as any;
           return (
             <div
               key={issue.id}
@@ -1029,18 +1032,21 @@ function OutputsPanel({ projectId }: { projectId: string }) {
             { m: "artifacts", Icon: PackageOpen,  label: "Artifacts" },
             { m: "insights",  Icon: Brain,        label: "Insights"  },
           ] as { m: PanelMode; Icon: React.ElementType; label: string }[]
-        ).map(({ m, Icon, label }) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={cn(
-              "flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors flex-1 min-w-[45px]",
-              mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Icon className="w-3 h-3" />{label}
-          </button>
-        ))}
+        ).map(({ m, Icon, label }) => {
+          const I = Icon as any;
+          return (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={cn(
+                "flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors flex-1 min-w-[45px]",
+                mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <I className="w-3 h-3" />{label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Derived Models panel */}
@@ -1059,26 +1065,29 @@ function OutputsPanel({ projectId }: { projectId: string }) {
       {mode === "captured" && (
         <>
           <div className="shrink-0 flex border-b border-border/50">
-            {tabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  "flex-1 flex flex-col items-center gap-0.5 py-2 text-[9px] font-medium transition-colors border-b-2",
-                  tab === t.id
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <t.icon className="w-3.5 h-3.5" />
-                <span>{t.label}</span>
-                {(t.count ?? 0) > 0 && (
-                  <span className="bg-primary/20 text-primary rounded-full px-1 min-w-[14px] text-center leading-none py-0.5">
-                    {t.count}
-                  </span>
-                )}
-              </button>
-            ))}
+            {tabs.map(t => {
+                const Icon = t.icon as any;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      "flex-1 flex flex-col items-center gap-0.5 py-2 text-[9px] font-medium transition-colors border-b-2",
+                      tab === t.id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{t.label}</span>
+                    {(t.count ?? 0) > 0 && (
+                      <span className="bg-primary/20 text-primary rounded-full px-1 min-w-[14px] text-center leading-none py-0.5">
+                        {t.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {isLoading && (
@@ -1092,7 +1101,7 @@ function OutputsPanel({ projectId }: { projectId: string }) {
           outputs?.notes.length === 0
             ? <EmptyOutput label="No notes extracted yet. Start chatting!" />
             : outputs?.notes.map(n => {
-              const Icon = NOTE_TYPE_ICONS[n.note_type] ?? FileText;
+              const Icon = (NOTE_TYPE_ICONS[n.note_type] ?? FileText) as any;
               return (
                 <div key={n.id} className="group p-2.5 rounded-lg border border-border/40 bg-muted/10 hover:border-border/60 transition-colors">
                   <div className="flex items-start justify-between gap-2">
@@ -1521,8 +1530,10 @@ function ProjectsTable({
     const bv: unknown = sortField === "session_count" ? (b.session_count ?? 0)
       : sortField === "message_count" ? (b.message_count ?? 0)
       : b[sortField as keyof StudioProject] ?? "";
-    if (av < bv) return sortAsc ? -1 : 1;
-    if (av > bv) return sortAsc ? 1 : -1;
+    const avAny: any = av as any;
+    const bvAny: any = bv as any;
+    if (avAny < bvAny) return sortAsc ? -1 : 1;
+    if (avAny > bvAny) return sortAsc ? 1 : -1;
     return 0;
   });
 
@@ -1720,8 +1731,10 @@ function SessionsTable({
       : sortField === "updated_at" ? b.updated_at
       : sortField === "mode" ? b.mode
       : (b.title ?? "");
-    if (av < bv) return sortAsc ? -1 : 1;
-    if (av > bv) return sortAsc ? 1 : -1;
+    const avAny: any = av as any;
+    const bvAny: any = bv as any;
+    if (avAny < bvAny) return sortAsc ? -1 : 1;
+    if (avAny > bvAny) return sortAsc ? 1 : -1;
     return 0;
   });
 
@@ -2019,7 +2032,7 @@ export default function Studio() {
         <div className="flex-1 overflow-hidden">
           <SessionsTable
             project={selectedProject}
-            selectedId={selectedSession?.id}
+            selectedId={(selectedSession as any)?.id}
             onSelect={setSelectedSession}
           />
         </div>
