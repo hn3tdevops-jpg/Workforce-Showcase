@@ -156,6 +156,13 @@ function BusinessSelector() {
           <div className="px-3 py-2 text-xs text-muted-foreground">No businesses found</div>
         )}
 
+        <DropdownMenuItem
+          onSelect={() => (window.location.href = '/app/business/register')}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          <span className="text-sm">Create new business</span>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={logout}

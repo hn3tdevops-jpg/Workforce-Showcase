@@ -9,6 +9,7 @@ import { UserPreferencesProvider } from "@/lib/user-preferences-context";
 
 import { AppShell } from "@/components/layout/shell";
 import Login from "@/pages/login";
+import Register from "@/pages/register";
 import Bootstrap from "@/pages/bootstrap";
 import Dashboard from "@/pages/dashboard";
 import Rooms from "@/pages/rooms";
@@ -20,6 +21,7 @@ import SessionDebug from "@/pages/session";
 import Timeline from "@/pages/timeline";
 import PropertyMap from "@/pages/property-map";
 import Settings from "@/pages/settings";
+import BusinessRegister from "@/pages/business-register";
 import Studio from "@/pages/studio";
 import Promotions from "@/pages/promotions";
 import Employees from "@/pages/employees";
@@ -74,6 +76,7 @@ function ProtectedRoutes() {
               <Route path="/app/timeline"     component={Timeline} />
               <Route path="/app/property-map" component={PropertyMap} />
               <Route path="/app/settings"     component={() => <PageContent><Settings /></PageContent>} />
+                <Route path="/app/business/register" component={() => <PageContent><BusinessRegister /></PageContent>} />
               <Route path="/app" component={() => <Redirect to="/app/dashboard" />} />
               <Route component={NotFound} />
             </Switch>
@@ -89,6 +92,7 @@ function Router() {
     <Switch>
       <Route path="/" component={() => <Redirect to="/app/dashboard" />} />
       <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       <Route path="/bootstrap" component={Bootstrap} />
       <Route path="/invite/:token" component={InviteClaim} />
       <Route path="/app/*" component={ProtectedRoutes} />
