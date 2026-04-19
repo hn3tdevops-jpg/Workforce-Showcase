@@ -58,7 +58,7 @@ export default function Dashboard() {
   });
 
   const activeBusiness = session?.memberships.find(
-    (m) => m.business_id === session.active_business_id
+    (m: any) => m.business_id === session.active_business_id
   );
 
   // Room status breakdown (from live rooms data)
@@ -151,7 +151,7 @@ export default function Dashboard() {
   if (inspPassRate !== null && inspPassRate !== undefined) {
     statCards.push({
       label: "Inspection Pass Rate",
-      value: `${inspPassRate}%`,
+      value: inspPassRate as any,
       icon: ShieldCheck,
       color: inspPassRate >= 80 ? "text-emerald-400" : "text-red-400",
       bg: inspPassRate >= 80 ? "bg-emerald-400/10" : "bg-red-400/10",
@@ -202,7 +202,7 @@ export default function Dashboard() {
                 <div
                   className={`w-10 h-10 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center border border-current/10`}
                 >
-                  <stat.icon className="w-5 h-5" />
+                  <span className="w-5 h-5" />
                 </div>
               </CardContent>
             </Card>

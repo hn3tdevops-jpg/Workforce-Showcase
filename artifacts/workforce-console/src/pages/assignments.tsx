@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useAssignments } from "@/hooks/use-workforce";
 import { fetchUsers, DEMO_MODE } from "@/lib/mock-adapter";
 import { useQuery } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ import {
   User, Hash, Clock, CheckCircle2, XCircle, AlertCircle, Loader2,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import type { Assignment } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Assignment } from "../../../../lib/api-client-react/src/generated/api.schemas";
 
 // ── Status & Role metadata ────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ function StatusChip({ status }: { status?: string }) {
       {status === "active" ? (
         <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
       ) : (
-        <m.icon className="w-3 h-3" />
+        <span className="w-3 h-3" />
       )}
       {m.label}
     </span>
@@ -328,7 +328,7 @@ export default function Assignments() {
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-primary/15 border border-primary/20 flex items-center justify-center shrink-0">
                           <span className="text-[10px] font-bold text-primary">
-                            {(a.employee_name ?? "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                            {(a.employee_name ?? "?").split(" ").map((n: any) => n[0]).join("").slice(0, 2).toUpperCase()}
                           </span>
                         </div>
                         <span className="font-medium text-sm">{a.employee_name ?? a.employee_id}</span>

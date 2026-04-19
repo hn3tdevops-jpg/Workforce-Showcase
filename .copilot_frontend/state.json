@@ -1,5 +1,15 @@
 {
-  "last_completed_task": "prepare-github-actions-browser-validation",
-  "next_suggested_task": "rerun-browser-functional-validation-in-supported-environment",
-  "notes": "Prepared GitHub Actions workflow and helper scripts for Playwright validation against dist-staging. Status remains NO-GO until validation run passes."
+  "active_repo": "/home/hn3t/workforce_frontend_app",
+  "focus": "frontend only",
+  "current_goal": "fix frontend typecheck/build, stabilize SPA preview, improve dev hub UI, audit frontend docs",
+  "rules": [
+    "no backend changes",
+    "prefer small safe diffs",
+    "preserve SPA fallback",
+    "document validation steps",
+    "avoid permanent generated-file hacks"
+  ],
+  "last_completed_task": null,
+  "next_suggested_task": "run frontend-only audit and propose smallest ordered patch set",
+  "notes": []
 }

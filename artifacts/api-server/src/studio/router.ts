@@ -544,7 +544,8 @@ router.post("/projects/:id/artifacts/generate", (req: Request, res: Response) =>
   const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(req.params.id);
   if (!project) return notFound(res);
 
-  const typesParam = req.query.types as string | undefined;
+  const typesParam = Array.isArray(req.query.types) ? req.query.types[0] : req.query.types;
+
   const types: ArtifactType[] = typesParam
     ? (typesParam.split(",").filter(t => ALL_ARTIFACT_TYPES.includes(t as ArtifactType)) as ArtifactType[])
     : ALL_ARTIFACT_TYPES;

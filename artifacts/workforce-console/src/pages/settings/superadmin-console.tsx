@@ -1312,11 +1312,12 @@ export default function SuperadminConsole() {
         </div>
         {NAV_ITEMS.map(item => {
           const active = section === item.id;
+          const Icon = item.icon as any;
           return (
             <button key={item.id} onClick={() => setSection(item.id)} className={`w-full flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors ${
               active ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" : "hover:bg-muted/40 text-muted-foreground hover:text-foreground"
             }`}>
-              <item.icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? "text-amber-400" : ""}`} />
+              <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? "text-amber-400" : ""}`} />
               <div>
                 <p className="text-xs font-medium leading-tight">{item.label}</p>
                 <p className="text-[10px] opacity-70 leading-tight mt-0.5">{item.desc}</p>

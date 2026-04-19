@@ -50,7 +50,7 @@ router.patch("/supply-pars/:id", (req: Request, res: Response) => {
 /** GET /inventory/assets?room_id= */
 router.get("/assets", (req: Request, res: Response) => {
   const db = getDb();
-  const { room_id } = req.query;
+  const room_id = Array.isArray(req.query.room_id) ? req.query.room_id[0] : req.query.room_id;
   if (!room_id) return bad(res, "room_id required");
   ok(res, db.prepare(`
     SELECT a.*, hr.room_number

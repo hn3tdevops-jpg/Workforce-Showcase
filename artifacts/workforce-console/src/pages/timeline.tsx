@@ -92,7 +92,7 @@ function payloadSummary(event: TimelineEvent): string {
 }
 
 function EventCard({ event }: { event: TimelineEvent }) {
-  const Icon = EVENT_ICONS[event.event_type] ?? Zap;
+  const Icon = (EVENT_ICONS[event.event_type] ?? Zap) as any;
   const colorClass = EVENT_COLORS[event.event_type] ?? "text-gray-400 bg-gray-400/10 border-gray-400/30";
   const [expanded, setExpanded] = useState(false);
 
@@ -258,7 +258,7 @@ export default function Timeline() {
                     </SelectTrigger>
                     <SelectContent>
                       {ENTITY_TYPES.map(t => {
-                        const Icon = ENTITY_ICONS[t] ?? Tag;
+                        const Icon = (ENTITY_ICONS[t] ?? Tag) as any;
                         return (
                           <SelectItem key={t} value={t}>
                             <span className="flex items-center gap-2">

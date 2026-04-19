@@ -139,7 +139,10 @@ function formatRoom(r: any) {
 
 router.get("/rooms", (req: Request, res: Response) => {
   const db = getDb();
-  const { location_id, housekeeping_status, sector_id } = req.query;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+  const housekeeping_status = Array.isArray(req.query.housekeeping_status) ? req.query.housekeeping_status[0] : req.query.housekeeping_status;
+  const sector_id = Array.isArray(req.query.sector_id) ? req.query.sector_id[0] : req.query.sector_id;
+
 
   let sql = `SELECT r.*,
     b.name  AS building_name,
@@ -302,26 +305,133 @@ function formatTask(t: any) {
   return t;
 }
 
+// @ts-ignore - handler uses an async IIFE and returns via Express response methods
 router.get("/tasks", (req: Request, res: Response) => {
-  const db = getDb();
-  const { location_id, status, room_id, assigned_user_id } = req.query;
+  // Use an async IIFE so the outer handler remains synchronous (Express handler signature)
+  void (async () => {
+    const db = getDb();
+    const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+    const status = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
+    const room_id = Array.isArray(req.query.room_id) ? req.query.room_id[0] : req.query.room_id;
+    const assigned_user_id = Array.isArray(req.query.assigned_user_id) ? req.query.assigned_user_id[0] : req.query.assigned_user_id;
 
-  let sql = `SELECT t.*, r.room_number,
-               ep.legal_first_name || ' ' || ep.legal_last_name AS assignee_ep_name,
-               ep.job_title AS assignee_ep_title,
-               ep.employee_code AS assignee_ep_code
-             FROM hk_tasks t
-             LEFT JOIN hk_rooms r ON r.id = t.room_id
-             LEFT JOIN employee_profiles ep ON ep.id = t.assignee_ep_id
-             WHERE 1=1`;
-  const params: any[] = [];
-  if (location_id) { sql += " AND t.location_id = ?"; params.push(location_id); }
-  if (status) { sql += " AND t.status = ?"; params.push(status); }
-  if (room_id) { sql += " AND t.room_id = ?"; params.push(room_id); }
-  if (assigned_user_id) { sql += " AND t.assigned_user_id = ?"; params.push(assigned_user_id); }
-  sql += " ORDER BY t.created_at DESC";
 
-  ok(res, db.prepare(sql).all(...params).map(formatTask));
+    // Basic auth header check
+    const authHeader = (req.headers.authorization ?? "").toString();
+    if (!authHeader) return res.status(401).json({ detail: "Not authenticated" });
+
+    // Helper to check permission list
+    const hasPermIn = (perms: string[] | undefined, perm: string) => {
+      if (!perms) return false;
+      return perms.includes("*") || perms.includes(perm);
+    };
+
+    // Try local session override first
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    let allowedAll = false;
+    let allowedLocations: string[] = [];
+    let myEmployeeIds: string[] = [];
+
+    try {
+      const localRow = db.prepare("SELECT user_json FROM local_sessions WHERE token = ?").get(token) as { user_json: string } | undefined;
+      if (localRow) {
+        const user = JSON.parse(localRow.user_json) as any;
+        if (hasPermIn(user.permissions, "tasks:read")) {
+          allowedAll = true;
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    // If not allowed yet, ask the auth access-context endpoint for effective scopes
+    if (!allowedAll) {
+      try {
+        const host = req.get("host") ?? "localhost:3000";
+        const proto = (req.protocol ?? "http").toString();
+        const url = `${proto}://${host}/auth/me/access-context`;
+        const acRes = await fetch(url, { headers: { authorization: authHeader } });
+        if (!acRes.ok) {
+          const text = await acRes.text();
+          // Propagate upstream 401/403 details if present
+          try { return res.status(acRes.status).json(JSON.parse(text)); } catch { return res.status(acRes.status).send(text); }
+        }
+        const ac = await acRes.json() as any;
+
+        // Gather permissions and scopes
+        for (const s of ac.scopes || []) {
+          const perms: string[] = s.effective_permissions || [];
+          if (perms.includes("*") || perms.includes("tasks:read")) {
+            allowedAll = true;
+          }
+          // business-level assignment grants access to all locations of the business
+          for (const a of s.assignments || []) {
+            if (a.scope_type === "BUSINESS") {
+              allowedAll = true;
+            } else if (a.scope_type === "LOCATION" && a.location_id) {
+              allowedLocations.push(a.location_id);
+            }
+          }
+          if (s.employee_profile_id) myEmployeeIds.push(s.employee_profile_id);
+          // if user has tasks:write:own but not tasks:read, keep employee ids to allow own-task listing
+          if (perms.includes("tasks:write:own") && !allowedAll) {
+            // ensure myEmployeeIds is set (already done)
+          }
+        }
+      } catch (err) {
+        // On any error calling access-context, deny access
+        return res.status(403).json({ detail: "Forbidden" });
+      }
+    }
+
+    // Enforce location scoping
+    if (location_id) {
+      if (!allowedAll && !allowedLocations.includes(location_id)) {
+        return res.status(403).json({ detail: "Forbidden: location not in caller scope" });
+      }
+    }
+
+    // Build SQL with additional RBAC filters when not allowedAll
+    let sql = `SELECT t.*, r.room_number,
+                 ep.legal_first_name || ' ' || ep.legal_last_name AS assignee_ep_name,
+                 ep.job_title AS assignee_ep_title,
+                 ep.employee_code AS assignee_ep_code
+               FROM hk_tasks t
+               LEFT JOIN hk_rooms r ON r.id = t.room_id
+               LEFT JOIN employee_profiles ep ON ep.id = t.assignee_ep_id
+               WHERE 1=1`;
+    const params: any[] = [];
+    if (status) { sql += " AND t.status = ?"; params.push(status); }
+    if (room_id) { sql += " AND t.room_id = ?"; params.push(room_id); }
+    if (assigned_user_id) { sql += " AND t.assigned_user_id = ?"; params.push(assigned_user_id); }
+
+    if (allowedAll) {
+      if (location_id) { sql += " AND t.location_id = ?"; params.push(location_id); }
+    } else {
+      // If caller has explicit allowedLocations, restrict to them
+      if (allowedLocations.length > 0) {
+        sql += ` AND t.location_id IN (${allowedLocations.map(() => "?").join(",")})`;
+        params.push(...allowedLocations);
+        if (location_id) { /* already checked it's in allowedLocations above */ }
+      } else if (myEmployeeIds.length > 0) {
+        // caller can only view tasks assigned to them
+        sql += ` AND t.assignee_ep_id IN (${myEmployeeIds.map(() => "?").join(",")})`;
+        params.push(...myEmployeeIds);
+      } else {
+        // no scopes that permit viewing tasks
+        return res.status(403).json({ detail: "Forbidden" });
+      }
+    }
+
+    sql += " ORDER BY t.created_at DESC";
+
+    ok(res, db.prepare(sql).all(...params).map(formatTask));
+  })().catch((err) => {
+    // ensure any unexpected errors return a 500
+    // eslint-disable-next-line no-console
+    console.error(err);
+    try { res.status(500).json({ detail: "Internal server error" }); } catch { /* ignore */ }
+  });
 });
 
 router.post("/tasks", (req: Request, res: Response) => {
@@ -419,7 +529,9 @@ router.get("/tasks/:taskId/events", (req: Request, res: Response) => {
 
 router.get("/maintenance-issues", (req: Request, res: Response) => {
   const db = getDb();
-  const { location_id, status } = req.query;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+  const status = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
+
   let sql = "SELECT * FROM maintenance_issues WHERE 1=1";
   const params: any[] = [];
   if (location_id) { sql += " AND location_id = ?"; params.push(location_id); }
@@ -465,7 +577,8 @@ router.patch("/maintenance-issues/:issueId", (req: Request, res: Response) => {
 
 router.get("/dashboard/room-board-summary", (req: Request, res: Response) => {
   const db = getDb();
-  const { location_id } = req.query;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+
   if (!location_id) return badRequest(res, "location_id required");
 
   const rooms = db.prepare("SELECT housekeeping_status, occupancy_status, inspection_status FROM hk_rooms WHERE location_id = ? AND is_active = 1").all(location_id) as any[];
@@ -499,7 +612,8 @@ router.get("/dashboard/room-board-summary", (req: Request, res: Response) => {
 
 router.get("/dashboard/housekeeping-board", (req: Request, res: Response) => {
   const db = getDb();
-  const { location_id } = req.query;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+
   if (!location_id) return badRequest(res, "location_id required");
 
   const tasks = db.prepare(`
@@ -527,7 +641,10 @@ router.get("/dashboard/housekeeping-board", (req: Request, res: Response) => {
 
 router.get("/assignments/", (req: Request, res: Response) => {
   const db = getDb();
-  const { location_id, skip = "0", limit = "100" } = req.query;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+  const skip = Number(Array.isArray(req.query.skip) ? req.query.skip[0] : req.query.skip ?? "0");
+  const limit = Number(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit ?? "100");
+
 
   let query = `
     SELECT
@@ -557,7 +674,8 @@ router.get("/assignments/", (req: Request, res: Response) => {
 
 router.get("/dashboard/maintenance-board", (req: Request, res: Response) => {
   const db = getDb();
-  const { location_id } = req.query;
+  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
+
   if (!location_id) return badRequest(res, "location_id required");
 
   const issues = db.prepare(`

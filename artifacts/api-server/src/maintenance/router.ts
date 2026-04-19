@@ -21,7 +21,10 @@ const MAINT_SELECT = `
 /** GET /maintenance */
 router.get("/", (req: Request, res: Response) => {
   const db = getDb();
-  const { status, severity, room_id } = req.query;
+  const status = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
+  const severity = Array.isArray(req.query.severity) ? req.query.severity[0] : req.query.severity;
+  const room_id = Array.isArray(req.query.room_id) ? req.query.room_id[0] : req.query.room_id;
+
   let where = "WHERE mi.location_id = 'loc-001'";
   const params: unknown[] = [];
   if (status)   { where += " AND mi.status = ?";   params.push(status); }

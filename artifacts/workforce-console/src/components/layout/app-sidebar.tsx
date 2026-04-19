@@ -69,7 +69,7 @@ function BusinessSelector() {
   const [switching, setSwitching] = useState<string | null>(null);
 
   const activeMembership = session?.memberships?.find(
-    (m) => m.business_id === session.active_business_id
+    (m: any) => m.business_id === session.active_business_id
   ) ?? session?.memberships?.[0];
 
   const businessName =
@@ -124,7 +124,7 @@ function BusinessSelector() {
         </div>
         <DropdownMenuSeparator />
 
-        {(session?.memberships ?? []).map((m) => {
+        {(session?.memberships ?? []).map((m: any) => {
           const isActive = m.business_id === session?.active_business_id;
           const isLoadingItem = switching === m.business_id;
           const name = m.business_name || (m.business_id === "local" ? "Local Account" : m.business_id);
@@ -156,6 +156,13 @@ function BusinessSelector() {
           <div className="px-3 py-2 text-xs text-muted-foreground">No businesses found</div>
         )}
 
+        <DropdownMenuItem
+          onSelect={() => (window.location.href = '/app/business/register')}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          <span className="text-sm">Create new business</span>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={logout}
@@ -198,7 +205,7 @@ export function AppSidebar() {
             </span>
           </div>
           {superAdmin && (
-            <Shield className="w-3.5 h-3.5 text-amber-400 ml-auto shrink-0" title="Superadmin" />
+            <Shield className="w-3.5 h-3.5 text-amber-400 ml-auto shrink-0" aria-label="Superadmin" />
           )}
         </div>
 
