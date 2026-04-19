@@ -40,7 +40,13 @@ export default function Login() {
       await login({ email, password });
       setLocation("/app/dashboard");
     } catch (err: any) {
-      setError(err.message || "Invalid credentials. Please try again.");
+      // Distinguish network-level failures (status 0) from API error responses.
+      const status = (err && (err as any).status) ?? (err && (err as any).statusCode) ?? 0;
+      if (status === 0) {
+        setError("Network error contacting server. Please check your connection and try again.");
+      } else {
+        setError((err && err.message) || "Invalid credentials. Please try again.");
+      }
     } finally {
       setIsPending(false);
     }
