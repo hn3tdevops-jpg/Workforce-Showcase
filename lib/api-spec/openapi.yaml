@@ -122,6 +122,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 
+  /v1/auth/switch-business:
     post:
       operationId: switchBusiness
       tags: [auth]
