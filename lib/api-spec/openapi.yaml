@@ -82,6 +82,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/auth/me/access-context:
+    get:
+      operationId: getMeAccessContext
+      tags: [auth]
+      summary: Get employment scopes for the current user
+      description: |
+        Returns the employment scope for the authenticated user by resolving
+        user_employee_links → employee_profiles → employee_role_assignments.
+        This endpoint separates the system user identity (from /auth/me) from
+        employee profiles, preserving the user/employee boundary.
+
+        **Upstream support:** The local API proxy (api-server) implements this
+        endpoint using the local SQLite database. Support on the upstream
+        PythonAnywhere backend (hn3t.pythonanywhere.com) is **unverified**.
+        If the upstream backend returns a non-2xx response, this endpoint
+        propagates the upstream status. If the upstream backend does not
+        implement this path, the local proxy resolves it using local DB records.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Access context for the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessContext"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — no active employee scopes found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
   /v1/auth/switch-business:
     post:
       operationId: switchBusiness
@@ -466,3 +506,108 @@ components:
         - id
         - start_time
         - end_time
+
+    EmployeeRoleAssignment:
+      type: object
+      description: A single role assignment entry for an employee
+      properties:
+        id:
+          type: string
+        role_name:
+          type: string
+        scope_type:
+          type: string
+          enum: [BUSINESS, LOCATION]
+        location_id:
+          type: string
+          nullable: true
+        location_name:
+          type: string
+          nullable: true
+        permissions:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - role_name
+        - scope_type
+
+    EmployeeScope:
+      type: object
+      description: |
+        A single employment scope linking a system user to an employee profile,
+        including the employee's role assignments and effective permissions.
+      properties:
+        employee_profile_id:
+          type: string
+        link_id:
+          type: string
+        link_status:
+          type: string
+        business_id:
+          type: string
+        employee_name:
+          type: string
+        job_title:
+          type: string
+          nullable: true
+        department:
+          type: string
+          nullable: true
+        employee_code:
+          type: string
+          nullable: true
+        employment_status:
+          type: string
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRoleAssignment"
+        effective_permissions:
+          type: array
+          description: Union of all permissions from all role assignments
+          items:
+            type: string
+        is_super_admin:
+          type: boolean
+          description: True when effective_permissions includes "*"
+      required:
+        - employee_profile_id
+        - link_id
+        - link_status
+        - business_id
+        - employee_name
+        - employment_status
+        - assignments
+        - effective_permissions
+        - is_super_admin
+
+    AccessContext:
+      type: object
+      description: |
+        Employment access context for the authenticated user.
+        Returned by GET /api/v1/auth/me/access-context.
+        Upstream backend support is unverified; the local API proxy
+        (api-server) provides this using local SQLite records.
+      properties:
+        user_id:
+          type: string
+        has_access:
+          type: boolean
+          description: True when at least one active employment scope was found
+        active_scope_count:
+          type: integer
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeScope"
+        resolved_at:
+          type: string
+          format: date-time
+      required:
+        - user_id
+        - has_access
+        - active_scope_count
+        - scopes
+        - resolved_at

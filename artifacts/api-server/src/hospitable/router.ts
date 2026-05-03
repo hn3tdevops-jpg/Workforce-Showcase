@@ -308,17 +308,17 @@ function formatTask(t: any) {
 // @ts-ignore - handler uses an async IIFE and returns via Express response methods
 router.get("/tasks", (req: Request, res: Response) => {
   // Use an async IIFE so the outer handler remains synchronous (Express handler signature)
-  void (async () => {
+  void (async (): Promise<void> => {
     const db = getDb();
-    const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
-    const status = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
-    const room_id = Array.isArray(req.query.room_id) ? req.query.room_id[0] : req.query.room_id;
-    const assigned_user_id = Array.isArray(req.query.assigned_user_id) ? req.query.assigned_user_id[0] : req.query.assigned_user_id;
+    const location_id = (Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id) as string | undefined;
+    const status = (Array.isArray(req.query.status) ? req.query.status[0] : req.query.status) as string | undefined;
+    const room_id = (Array.isArray(req.query.room_id) ? req.query.room_id[0] : req.query.room_id) as string | undefined;
+    const assigned_user_id = (Array.isArray(req.query.assigned_user_id) ? req.query.assigned_user_id[0] : req.query.assigned_user_id) as string | undefined;
 
 
     // Basic auth header check
     const authHeader = (req.headers.authorization ?? "").toString();
-    if (!authHeader) return res.status(401).json({ detail: "Not authenticated" });
+    if (!authHeader) { res.status(401).json({ detail: "Not authenticated" }); return; }
 
     // Helper to check permission list
     const hasPermIn = (perms: string[] | undefined, perm: string) => {
@@ -354,7 +354,7 @@ router.get("/tasks", (req: Request, res: Response) => {
         if (!acRes.ok) {
           const text = await acRes.text();
           // Propagate upstream 401/403 details if present
-          try { return res.status(acRes.status).json(JSON.parse(text)); } catch { return res.status(acRes.status).send(text); }
+          try { res.status(acRes.status).json(JSON.parse(text)); return; } catch { res.status(acRes.status).send(text); return; }
         }
         const ac = await acRes.json() as any;
 
@@ -380,14 +380,14 @@ router.get("/tasks", (req: Request, res: Response) => {
         }
       } catch (err) {
         // On any error calling access-context, deny access
-        return res.status(403).json({ detail: "Forbidden" });
+        res.status(403).json({ detail: "Forbidden" }); return;
       }
     }
 
     // Enforce location scoping
     if (location_id) {
       if (!allowedAll && !allowedLocations.includes(location_id)) {
-        return res.status(403).json({ detail: "Forbidden: location not in caller scope" });
+        res.status(403).json({ detail: "Forbidden: location not in caller scope" }); return;
       }
     }
 
@@ -419,7 +419,7 @@ router.get("/tasks", (req: Request, res: Response) => {
         params.push(...myEmployeeIds);
       } else {
         // no scopes that permit viewing tasks
-        return res.status(403).json({ detail: "Forbidden" });
+        res.status(403).json({ detail: "Forbidden" }); return;
       }
     }
 

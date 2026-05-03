@@ -1,4 +1,4 @@
-import type { LoginRequest, SwitchBusinessRequest } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { LoginRequest, SwitchBusinessRequest } from "@workspace/api-client-react";
 
 const envBase = import.meta.env.VITE_API_BASE_URL;
 // When VITE_API_BASE_URL is set, use it directly (requires CORS on the server).

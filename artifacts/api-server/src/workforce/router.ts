@@ -152,7 +152,8 @@ router.post("/employees", (req: Request, res: Response) => {
 /** PATCH /workforce/employees/:id — employer-managed fields only */
 router.patch("/employees/:id", (req: Request, res: Response) => {
   const db = getDb();
-  const ep = db.prepare("SELECT * FROM employee_profiles WHERE id = ?").get(req.params.id) as any;
+  const employeeId = req.params.id as string;
+  const ep = db.prepare("SELECT * FROM employee_profiles WHERE id = ?").get(employeeId) as any;
   if (!ep) return notFound(res, "Employee profile not found");
 
   const {
@@ -187,15 +188,15 @@ router.patch("/employees/:id", (req: Request, res: Response) => {
     schedule_eligible != null ? +schedule_eligible : null,
     internal_notes ?? null, employee_code ?? null,
     actor_user_id ?? null,
-    req.params.id,
+    employeeId,
   );
 
-  const after = db.prepare("SELECT * FROM employee_profiles WHERE id = ?").get(req.params.id);
-  audit(db, "employee_profile.update", "employee_profile", req.params.id, {
+  const after = db.prepare("SELECT * FROM employee_profiles WHERE id = ?").get(employeeId);
+  audit(db, "employee_profile.update", "employee_profile", employeeId, {
     actor_user_id, before, after,
   });
 
-  ok(res, db.prepare(`${EP_SELECT} WHERE ep.id = ?`).get(req.params.id));
+  ok(res, db.prepare(`${EP_SELECT} WHERE ep.id = ?`).get(employeeId));
 });
 
 // ── Lifecycle Transitions ─────────────────────────────────────────────────────
@@ -214,7 +215,8 @@ const VALID_TRANSITIONS: Record<string, { from: string[]; to: string; event: str
 Object.entries(VALID_TRANSITIONS).forEach(([action, { from, to, event: evKey }]) => {
   router.post(`/employees/:id/${action}`, (req: Request, res: Response) => {
     const db = getDb();
-    const ep = db.prepare("SELECT * FROM employee_profiles WHERE id = ?").get(req.params.id) as any;
+    const employeeId = req.params.id as string;
+    const ep = db.prepare("SELECT * FROM employee_profiles WHERE id = ?").get(employeeId) as any;
     if (!ep) return notFound(res, "Employee profile not found");
     if (!from.includes(ep.employment_status)) {
       return bad(res, `Cannot ${action} from status '${ep.employment_status}'. Allowed from: ${from.join(", ")}`);
@@ -235,13 +237,13 @@ Object.entries(VALID_TRANSITIONS).forEach(([action, { from, to, event: evKey }])
         hire_date         = COALESCE(?, hire_date),
         updated_at        = datetime('now')
       WHERE id = ?
-    `).run(to, to === "TERMINATED" || to === "ARCHIVED" ? 0 : 1, extra.termination_date ?? null, extra.hire_date ?? null, req.params.id);
+    `).run(to, to === "TERMINATED" || to === "ARCHIVED" ? 0 : 1, extra.termination_date ?? null, extra.hire_date ?? null, employeeId);
 
-    audit(db, evKey, "employee_profile", req.params.id, {
+    audit(db, evKey, "employee_profile", employeeId, {
       actor_user_id, reason, before, after: { employment_status: to },
     });
 
-    ok(res, db.prepare(`${EP_SELECT} WHERE ep.id = ?`).get(req.params.id));
+    ok(res, db.prepare(`${EP_SELECT} WHERE ep.id = ?`).get(employeeId));
   });
 });
 
@@ -334,7 +336,8 @@ const LINK_TRANSITIONS: Record<string, { from: string[]; to: string; event: stri
 Object.entries(LINK_TRANSITIONS).forEach(([action, { from, to, event: evKey }]) => {
   router.post(`/links/:id/${action}`, (req: Request, res: Response) => {
     const db = getDb();
-    const link = db.prepare("SELECT * FROM user_employee_links WHERE id = ?").get(req.params.id) as any;
+    const linkId = req.params.id as string;
+    const link = db.prepare("SELECT * FROM user_employee_links WHERE id = ?").get(linkId) as any;
     if (!link) return notFound(res, "Link not found");
     if (!from.includes(link.link_status)) {
       return bad(res, `Cannot ${action} link from status '${link.link_status}'`);
@@ -360,16 +363,16 @@ Object.entries(LINK_TRANSITIONS).forEach(([action, { from, to, event: evKey }]) 
       to,
       to,
       reason ?? null,
-      req.params.id,
+      linkId,
     );
 
-    audit(db, evKey, "user_employee_link", req.params.id, {
+    audit(db, evKey, "user_employee_link", linkId, {
       actor_user_id, reason, before, after: { link_status: to },
       related_ep_id: link.employee_profile_id,
       related_user_id: link.user_id,
     });
 
-    ok(res, db.prepare("SELECT * FROM user_employee_links WHERE id = ?").get(req.params.id));
+    ok(res, db.prepare("SELECT * FROM user_employee_links WHERE id = ?").get(linkId));
   });
 });
 
@@ -394,7 +397,8 @@ router.post("/employees/:id/role-assignments", (req: Request, res: Response) => 
   if (!role_name) return bad(res, "role_name required");
 
   const db = getDb();
-  const ep = db.prepare("SELECT id FROM employee_profiles WHERE id = ?").get(req.params.id) as any;
+  const employeeId = req.params.id as string;
+  const ep = db.prepare("SELECT id FROM employee_profiles WHERE id = ?").get(employeeId) as any;
   if (!ep) return notFound(res, "Employee profile not found");
 
   if (scope_type === "LOCATION" && !location_id) return bad(res, "location_id required for LOCATION scope");
@@ -405,11 +409,11 @@ router.post("/employees/:id/role-assignments", (req: Request, res: Response) => 
       (id, employee_profile_id, business_id, scope_type, location_id, role_name,
        permissions, assigned_by_user_id, is_active)
     VALUES (?, ?, 'biz-silver-sands', ?, ?, ?, ?, ?, 1)
-  `).run(id, req.params.id, scope_type, location_id ?? null, role_name, JSON.stringify(permissions), actor_user_id ?? null);
+  `).run(id, employeeId, scope_type, location_id ?? null, role_name, JSON.stringify(permissions), actor_user_id ?? null);
 
   audit(db, "employee_role_assignment.add", "employee_role_assignment", id, {
-    actor_user_id, after: { role_name, scope_type, employee_profile_id: req.params.id },
-    related_ep_id: req.params.id,
+    actor_user_id, after: { role_name, scope_type, employee_profile_id: employeeId },
+    related_ep_id: employeeId,
   });
 
   ok(res, db.prepare("SELECT * FROM employee_role_assignments WHERE id = ?").get(id), 201);
@@ -418,13 +422,14 @@ router.post("/employees/:id/role-assignments", (req: Request, res: Response) => 
 /** DELETE /workforce/role-assignments/:id */
 router.delete("/role-assignments/:id", (req: Request, res: Response) => {
   const db = getDb();
-  const era = db.prepare("SELECT * FROM employee_role_assignments WHERE id = ?").get(req.params.id) as any;
+  const assignmentId = req.params.id as string;
+  const era = db.prepare("SELECT * FROM employee_role_assignments WHERE id = ?").get(assignmentId) as any;
   if (!era) return notFound(res, "Role assignment not found");
 
   const { actor_user_id } = req.body ?? {};
-  db.prepare("UPDATE employee_role_assignments SET is_active = 0, updated_at = datetime('now') WHERE id = ?").run(req.params.id);
+  db.prepare("UPDATE employee_role_assignments SET is_active = 0, updated_at = datetime('now') WHERE id = ?").run(assignmentId);
 
-  audit(db, "employee_role_assignment.deactivate", "employee_role_assignment", req.params.id, {
+  audit(db, "employee_role_assignment.deactivate", "employee_role_assignment", assignmentId, {
     actor_user_id, before: { is_active: 1, role_name: era.role_name },
     after: { is_active: 0 }, related_ep_id: era.employee_profile_id,
   });
