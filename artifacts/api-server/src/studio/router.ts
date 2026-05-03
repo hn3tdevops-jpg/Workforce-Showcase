@@ -406,29 +406,31 @@ function runModelDerivation(projectId: string): void {
 // Manual derive trigger
 router.post("/projects/:id/models/derive", (req: Request, res: Response) => {
   const db = getDb();
-  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(req.params.id);
+  const projectId = req.params.id as string;
+  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(projectId);
   if (!project) return notFound(res);
 
-  runModelDerivation(req.params.id);
+  runModelDerivation(projectId);
 
   ok(res, {
-    entities:      db.prepare("SELECT * FROM studio_entities      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    workflows:     db.prepare("SELECT * FROM studio_workflows     WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    views:         db.prepare("SELECT * FROM studio_views         WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    concepts:      db.prepare("SELECT * FROM studio_concepts      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    relationships: db.prepare("SELECT * FROM studio_relationships WHERE project_id = ? ORDER BY from_name ASC").all(req.params.id),
+    entities:      db.prepare("SELECT * FROM studio_entities      WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    workflows:     db.prepare("SELECT * FROM studio_workflows     WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    views:         db.prepare("SELECT * FROM studio_views         WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    concepts:      db.prepare("SELECT * FROM studio_concepts      WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    relationships: db.prepare("SELECT * FROM studio_relationships WHERE project_id = ? ORDER BY from_name ASC").all(projectId),
   });
 });
 
 // Read endpoints
 router.get("/projects/:id/models", (req: Request, res: Response) => {
   const db = getDb();
+  const projectId = req.params.id as string;
   ok(res, {
-    entities:      db.prepare("SELECT * FROM studio_entities      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    workflows:     db.prepare("SELECT * FROM studio_workflows     WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    views:         db.prepare("SELECT * FROM studio_views         WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    concepts:      db.prepare("SELECT * FROM studio_concepts      WHERE project_id = ? ORDER BY name ASC").all(req.params.id),
-    relationships: db.prepare("SELECT * FROM studio_relationships WHERE project_id = ? ORDER BY from_name ASC").all(req.params.id),
+    entities:      db.prepare("SELECT * FROM studio_entities      WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    workflows:     db.prepare("SELECT * FROM studio_workflows     WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    views:         db.prepare("SELECT * FROM studio_views         WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    concepts:      db.prepare("SELECT * FROM studio_concepts      WHERE project_id = ? ORDER BY name ASC").all(projectId),
+    relationships: db.prepare("SELECT * FROM studio_relationships WHERE project_id = ? ORDER BY from_name ASC").all(projectId),
   });
 });
 
@@ -500,10 +502,11 @@ function upsertValidations(projectId: string): void {
 // Trigger full validation
 router.post("/projects/:id/validate", (req: Request, res: Response) => {
   const db = getDb();
-  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(req.params.id);
+  const projectId = req.params.id as string;
+  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(projectId);
   if (!project) return notFound(res);
 
-  upsertValidations(req.params.id);
+  upsertValidations(projectId);
 
   const issues = db.prepare(`
     SELECT * FROM studio_validations
@@ -511,7 +514,7 @@ router.post("/projects/:id/validate", (req: Request, res: Response) => {
     ORDER BY CASE severity
       WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2
       WHEN 'LOW' THEN 3 ELSE 4 END, created_at DESC
-  `).all(req.params.id);
+  `).all(projectId);
 
   ok(res, issues);
 });
@@ -541,13 +544,14 @@ router.patch("/validations/:id/dismiss", (req: Request, res: Response) => {
 // Generate all artifacts (or specific types via ?types=SUMMARY,DESIGN_DOC)
 router.post("/projects/:id/artifacts/generate", (req: Request, res: Response) => {
   const db = getDb();
-  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(req.params.id);
+  const projectId = req.params.id as string;
+  const project = db.prepare("SELECT id FROM studio_projects WHERE id = ?").get(projectId);
   if (!project) return notFound(res);
 
-  const typesParam = Array.isArray(req.query.types) ? req.query.types[0] : req.query.types;
+  const typesParam = (Array.isArray(req.query.types) ? req.query.types[0] : req.query.types) as string | undefined;
 
   const types: ArtifactType[] = typesParam
-    ? (typesParam.split(",").filter(t => ALL_ARTIFACT_TYPES.includes(t as ArtifactType)) as ArtifactType[])
+    ? (typesParam.split(",").filter((t: string) => ALL_ARTIFACT_TYPES.includes(t as ArtifactType)) as ArtifactType[])
     : ALL_ARTIFACT_TYPES;
 
   const upsert = db.prepare(`
@@ -562,11 +566,11 @@ router.post("/projects/:id/artifacts/generate", (req: Request, res: Response) =>
 
   const results: any[] = [];
   for (const t of types) {
-    const content   = generateArtifact(db, req.params.id, t);
+    const content   = generateArtifact(db, projectId, t);
     const wordCount = content.split(/\s+/).filter(Boolean).length;
     const meta      = ARTIFACT_META[t];
     const ts        = now();
-    upsert.run(uid(), req.params.id, t, meta.label, content, wordCount, ts);
+    upsert.run(uid(), projectId, t, meta.label, content, wordCount, ts);
     results.push({ artifact_type: t, label: meta.label, word_count: wordCount, generated_at: ts });
   }
 

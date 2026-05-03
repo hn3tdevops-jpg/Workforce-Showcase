@@ -43,8 +43,8 @@ function recalcStatus(db: ReturnType<typeof getDb>, shiftId: string) {
 
 router.get("/shifts/", (req: Request, res: Response) => {
   const db = getDb();
-  const location_id = Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id;
-  const week_start = Array.isArray(req.query.week_start) ? req.query.week_start[0] : req.query.week_start;
+  const location_id = (Array.isArray(req.query.location_id) ? req.query.location_id[0] : req.query.location_id) as string | undefined;
+  const week_start = (Array.isArray(req.query.week_start) ? req.query.week_start[0] : req.query.week_start) as string | undefined;
 
 
   let sql = "SELECT * FROM shifts WHERE 1=1";
@@ -92,6 +92,7 @@ router.post("/shifts/", (req: Request, res: Response) => {
 
 router.patch("/shifts/:shiftId", (req: Request, res: Response) => {
   const db = getDb();
+  const shiftId = req.params.shiftId as string;
   const fields = ["title", "role", "date", "start_time", "end_time", "capacity", "status", "notes"] as const;
   const body = req.body as Record<string, unknown>;
   const sets: string[] = [];
@@ -101,18 +102,19 @@ router.patch("/shifts/:shiftId", (req: Request, res: Response) => {
   }
   if (!sets.length) return badRequest(res, "No fields to update");
   sets.push("updated_at = datetime('now')");
-  vals.push(req.params.shiftId);
+  vals.push(shiftId);
   const result = db.prepare(`UPDATE shifts SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
   if (result.changes === 0) return notFound(res);
-  if (body.capacity !== undefined) recalcStatus(db, req.params.shiftId);
-  ok(res, loadShift(db, req.params.shiftId));
+  if (body.capacity !== undefined) recalcStatus(db, shiftId);
+  ok(res, loadShift(db, shiftId));
 });
 
 router.delete("/shifts/:shiftId", (req: Request, res: Response) => {
   const db = getDb();
+  const shiftId = req.params.shiftId as string;
   const result = db.prepare(
     "UPDATE shifts SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?"
-  ).run(req.params.shiftId);
+  ).run(shiftId);
   if (result.changes === 0) return notFound(res);
   ok(res, { detail: "Shift cancelled" });
 });
@@ -121,24 +123,27 @@ router.delete("/shifts/:shiftId", (req: Request, res: Response) => {
 
 router.post("/shifts/:shiftId/assignees", (req: Request, res: Response) => {
   const db = getDb();
+  const shiftId = req.params.shiftId as string;
   const { user_id } = req.body as { user_id: string };
   if (!user_id) return badRequest(res, "user_id required");
-  const shift = db.prepare("SELECT * FROM shifts WHERE id = ?").get(req.params.shiftId);
+  const shift = db.prepare("SELECT * FROM shifts WHERE id = ?").get(shiftId);
   if (!shift) return notFound(res, "Shift not found");
   try {
-    db.prepare("INSERT INTO shift_assignees (shift_id, user_id) VALUES (?, ?)").run(req.params.shiftId, user_id);
+    db.prepare("INSERT INTO shift_assignees (shift_id, user_id) VALUES (?, ?)").run(shiftId, user_id);
   } catch {
     // already assigned — silently ignore duplicate
   }
-  recalcStatus(db, req.params.shiftId);
-  ok(res, loadShift(db, req.params.shiftId));
+  recalcStatus(db, shiftId);
+  ok(res, loadShift(db, shiftId));
 });
 
 router.delete("/shifts/:shiftId/assignees/:userId", (req: Request, res: Response) => {
   const db = getDb();
-  db.prepare("DELETE FROM shift_assignees WHERE shift_id = ? AND user_id = ?").run(req.params.shiftId, req.params.userId);
-  recalcStatus(db, req.params.shiftId);
-  ok(res, loadShift(db, req.params.shiftId));
+  const shiftId = req.params.shiftId as string;
+  const userId = req.params.userId as string;
+  db.prepare("DELETE FROM shift_assignees WHERE shift_id = ? AND user_id = ?").run(shiftId, userId);
+  recalcStatus(db, shiftId);
+  ok(res, loadShift(db, shiftId));
 });
 
 // ── Swap Requests ─────────────────────────────────────────────────────────────

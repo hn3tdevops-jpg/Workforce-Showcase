@@ -190,6 +190,11 @@ router.get("/me/access-context", async (req, res) => {
 });
 
 router.post("/reset", (req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    res.status(403).json({ detail: "This endpoint is not available in production." });
+    return;
+  }
+
   const { email, new_password } = req.body ?? {};
   if (!email || !new_password) {
     res.status(422).json({ detail: "email and new_password are required." });
