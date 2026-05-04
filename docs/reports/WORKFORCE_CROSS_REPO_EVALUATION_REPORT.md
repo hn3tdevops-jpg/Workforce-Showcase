@@ -11,7 +11,7 @@
 | Report | Status |
 |---|---|
 | `workforce-backup/docs/reports/REPO_EVALUATION_REPORT.md` | ⚠️ INACCESSIBLE — repo not available in this agent context |
-| `workforce-showcase/docs/reports/REPO_EVALUATION_REPORT.md` | ⚠️ NOT YET CREATED — this cross-repo report serves as the primary showcase evaluation |
+| `workforce-showcase/docs/reports/REPO_EVALUATION_REPORT.md` | ✅ CREATED — see `docs/reports/REPO_EVALUATION_REPORT.md` (generated 2026-05-04) |
 | `workforce-console/docs/reports/REPO_EVALUATION_REPORT.md` | ⚠️ INACCESSIBLE — standalone repo not available; partial data inferred from `artifacts/workforce-console` in this repo |
 
 > **Note:** This report was authored from within `workforce-showcase`. Direct read access to `workforce-backup` and the standalone `workforce-console` repos was not available. Sections covering those repos are marked with placeholder text and must be filled in by pasting data from those repos' individual evaluation reports when available.
