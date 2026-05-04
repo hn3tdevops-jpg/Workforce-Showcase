@@ -1,6 +1,7 @@
 # Workforce Cross-Repo Evaluation Report
 
-**Generated:** 2026-05-03  
+**Generated:** 2026-05-04  
+**Updated:** 2026-05-04 (added evidence from workforce-backup and workforce-console via GitHub API)  
 **Coordination Hub:** `workforce-showcase`  
 **Report Author:** Copilot Agent (automated analysis)
 
@@ -10,11 +11,11 @@
 
 | Report | Status |
 |---|---|
-| `workforce-backup/docs/reports/REPO_EVALUATION_REPORT.md` | ⚠️ INACCESSIBLE — repo not available in this agent context |
-| `workforce-showcase/docs/reports/REPO_EVALUATION_REPORT.md` | ✅ CREATED — see `docs/reports/REPO_EVALUATION_REPORT.md` (generated 2026-05-04) |
-| `workforce-console/docs/reports/REPO_EVALUATION_REPORT.md` | ⚠️ INACCESSIBLE — standalone repo not available; partial data inferred from `artifacts/workforce-console` in this repo |
+| `workforce-backup/docs/reports/REPO_EVALUATION_REPORT.md` | ❌ MISSING — repo is accessible via GitHub API; individual evaluation report has not been created yet (see source issue: [Workforce-backup#19](https://github.com/hn3tdevops-jpg/Workforce-backup/issues/19)) |
+| `workforce-showcase/docs/reports/REPO_EVALUATION_REPORT.md` | ✅ EXISTS — see `docs/reports/REPO_EVALUATION_REPORT.md` (generated 2026-05-04, branch `copilot/create-evaluation-report-again`) |
+| `workforce-console/docs/reports/REPO_EVALUATION_REPORT.md` | ❌ MISSING — repo is accessible via GitHub API; no `docs/reports/` directory exists; individual evaluation report has not been created yet (see source issue: [Workforce-Console#18](https://github.com/hn3tdevops-jpg/Workforce-Console/issues/18)) |
 
-> **Note:** This report was authored from within `workforce-showcase`. Direct read access to `workforce-backup` and the standalone `workforce-console` repos was not available. Sections covering those repos are marked with placeholder text and must be filled in by pasting data from those repos' individual evaluation reports when available.
+> **Note:** All three repos were accessed via GitHub API for this report. Key docs from workforce-backup and workforce-console were read to populate sections below. Where a fact is read directly from a file in those repos, the source path is noted as evidence. Sections that remain unresolvable from remote file reads are explicitly marked `[NEEDS VERIFICATION]`.
 
 ---
 
@@ -22,36 +23,35 @@
 
 ### Overall System Health: 🔴 NOT PRODUCTION READY
 
-The Workforce platform is a multi-repo system consisting of a Python/FastAPI backend (`hn3t.pythonanywhere.com`), a Node.js/Express local API proxy (`artifacts/api-server`), a React/Vite frontend SPA (`artifacts/workforce-console`), and a developer hub (`developer_hub/`). As of this evaluation:
+The Workforce platform spans three repositories with distinct roles:
 
-- **Frontend (workforce-showcase):** 32 TypeScript errors remain unresolved. CI/CD (Playwright browser validation) has never successfully run on the remote. Production status is explicitly documented as `NO-GO`.
-- **Backend (`hn3t.pythonanywhere.com`):** The canonical production backend is an external PythonAnywhere deployment. Its health, RBAC implementation, and API contract completeness are only partially observable from this repo. No `/api/health` or `/api/healthz` endpoint is confirmed live.
-- **workforce-backup:** Inaccessible from this environment. Health unknown — placeholder below.
-- **workforce-console (standalone):** Inaccessible from this environment. Partial state inferred from `artifacts/workforce-console` contents.
+- **workforce-backup** (`hn3tdevops-jpg/Workforce-backup`): Python/FastAPI multi-tenant platform backend. In Phase 0 — Foundation Freeze. Tests passing (53 as of 2026-05-03), CI workflows now added and fixed, CORS partially corrected for Render frontend (`https://hospitable-web.onrender.com`). PostgreSQL migration chain not yet verified. No individual `REPO_EVALUATION_REPORT.md`.
+- **workforce-console** (`hn3tdevops-jpg/Workforce-Console`): Mixed repository containing both a FastAPI backend (`workforce_api/`) and a React/Vite frontend (`workforce_frontend_app/`). POST `/api/v1/auth/login` was returning HTTP 500 in production (now returns 503 on unhandled exceptions). GET `/api/v1/bootstrap` confirmed working. No CI. No individual `REPO_EVALUATION_REPORT.md`.
+- **workforce-showcase** (`hn3tdevops-jpg/Workforce-Showcase`): Full-stack showcase monorepo: frontend SPA, local Node.js/Express API proxy, Flask SPA server, dev hub, build tooling, docs. 32 TypeScript errors unresolved. Regular Playwright CI (`playwright-ci.yml`, push/PR trigger) is active and has passed on master and PRs. The separate browser-validation workflow (`playwright-browser-validation.yml`) is `workflow_dispatch`-only and has never been triggered. Production status explicitly documented as `NO-GO`. Hosts the individual `REPO_EVALUATION_REPORT.md` and this cross-repo report.
 
 ### Production Readiness
-❌ **Not ready.** Key blockers include unresolved TypeScript errors, no passing CI/CD run, unvalidated rollback procedure, and unconfirmed backend CORS and API contract alignment.
+❌ **Not ready for any repo.** Key blockers include unresolved TypeScript errors in the frontend, a broken login endpoint in workforce-console, CORS not fully verified for PythonAnywhere-hosted services, unverified PostgreSQL migration chain in backup, and the dist-staging browser-validation workflow not yet triggered in showcase.
 
 ### Top Blockers
-1. 32 unresolved TypeScript errors in the frontend (type generation/lib boundary and icon prop typing)
-2. GitHub Actions workflow for browser validation was never successfully pushed to remote (PAT lacks `workflow` scope)
-3. No confirmed `CORS` configuration allowing `wf-hn3t.pythonanywhere.com` or `devhub-hn3t.pythonanywhere.com` to call `hn3t.pythonanywhere.com`
-4. `lib/api-client-react` declaration files not built — blocking typed imports across the frontend
-5. Rollback rehearsal not yet completed; archive presence and checksums unverified
+1. 32 unresolved TypeScript errors in workforce-showcase frontend (type generation/lib boundary and icon prop typing)
+2. The browser-validation workflow (`playwright-browser-validation.yml`) in workforce-showcase is `workflow_dispatch`-only and has never been triggered — regular Playwright CI (`playwright-ci.yml`) runs on push/PR and has passed on master
+3. POST `/api/v1/auth/login` returned HTTP 500 in production in workforce-console (root cause: DB/migrations not provisioned; now returns 503 on error — full fix requires running `alembic upgrade head` + seeding DB on production)
+4. PostgreSQL migration chain unverified in workforce-backup — only SQLite verified locally; `foundation-v0.1` tag not yet cut
+5. CORS configuration for PythonAnywhere origins (`wf-hn3t.pythonanywhere.com`, `hn3t.pythonanywhere.com`) not confirmed in any backend; workforce-backup only added `https://hospitable-web.onrender.com`
 
 ### Top Risks
-1. **Diverged API contract:** The OpenAPI spec in `lib/api-spec/openapi.yaml` and the running PythonAnywhere backend may have drifted — no automated contract test exists
-2. **Auth token in localStorage:** `workforce_token` stored in `localStorage` is vulnerable to XSS; no `httpOnly` cookie fallback is in use
-3. **Hardcoded business ID:** `biz-silver-sands` / `SILVER_SANDS_BUSINESS_ID` is hardcoded in the local API proxy
-4. **No employee/user separation enforcement:** The `/auth/me/access-context` endpoint resolves employee roles locally but the upstream backend may not enforce the same scoping rules
-5. **PythonAnywhere rate limits / uptime:** The system has no fallback if `hn3t.pythonanywhere.com` is unavailable
+1. **Diverged API contracts across repos:** OpenAPI spec in workforce-showcase (`lib/api-spec/openapi.yaml`) is not the same spec as workforce-console's backend (`workforce_api/`); no shared contract enforcement
+2. **Auth token in localStorage:** `workforce_token` stored in `localStorage` (workforce-showcase and workforce-console frontend) is vulnerable to XSS
+3. **Dual RBAC schemas:** workforce-backup has canonical RBAC (`memberships/roles/role_permissions/permissions/scoped_role_assignments`) AND a legacy frozen surface (`biz_roles/biz_role_permissions/membership_roles`) — `SKIP_WORKFORCE_MODELS=1` guard required at all times; if guard fails, double-registration causes boot failure
+4. **`hospitable.db` committed to workforce-showcase repo** — SQLite database with potentially real business data tracked in git
+5. **Login 500 in workforce-console production** — users cannot authenticate against the live workforce-console backend without running DB migrations and seed
 
 ### Top Recommended Next Steps
-1. Fix lib/api-client-react declaration file generation so the frontend typechecks cleanly
-2. Provide a PAT with `workflow` scope and merge the Playwright CI workflow to enable automated browser validation
-3. Document and verify CORS allow-list on the PythonAnywhere backend
-4. Replace `localStorage` token storage with a more secure mechanism (e.g., `sessionStorage` + short expiry, or `httpOnly` cookies)
-5. Run the rollback rehearsal against `dist-staging` and record results before any production cutover
+1. Create individual `REPO_EVALUATION_REPORT.md` in workforce-backup and workforce-console per their respective issues (#19, #18)
+2. Verify and document CORS allow-list for all PythonAnywhere-hosted origins in workforce-backup (`hn3t.pythonanywhere.com`)
+3. Fix lib/api-client-react declaration file generation in workforce-showcase so the frontend typechecks cleanly
+4. Run `alembic upgrade head` + seed DB on workforce-console production to fix the login 500
+5. Verify PostgreSQL migration chain in workforce-backup and cut `foundation-v0.1` tag
 
 ---
 
@@ -59,9 +59,9 @@ The Workforce platform is a multi-repo system consisting of a Python/FastAPI bac
 
 | Repo | Purpose | Health | Production Readiness | Biggest Risk | Next Step |
 |---|---|---|---|---|---|
-| **workforce-showcase** | Full-stack showcase monorepo: frontend SPA, local API proxy, dev hub, build tooling, docs | 🟡 Partial | ❌ NO-GO (documented) | 32 TS errors; CI never ran remotely | Fix lib declaration files; run CI |
-| **workforce-backup** | ⚠️ PLACEHOLDER — repo inaccessible | Unknown | Unknown | Unknown | Paste data from that repo's evaluation report |
-| **workforce-console** (standalone) | ⚠️ PLACEHOLDER — repo inaccessible; `artifacts/workforce-console` in showcase appears to be a copy | Unknown | Unknown | May be diverged from showcase artifact | Paste data from that repo's evaluation report; reconcile with showcase artifact |
+| **workforce-backup** | Python/FastAPI multi-tenant platform backend; platform core for scheduling, RBAC, tenancy | 🟡 Partial | ❌ NO-GO (Phase 0 unfinished; PostgreSQL migration unverified; no `foundation-v0.1` tag) | Dual RBAC schema (`SKIP_WORKFORCE_MODELS=1` guard); PostgreSQL migration unverified | Cut `foundation-v0.1` tag after verifying Alembic migration on PostgreSQL; create `REPO_EVALUATION_REPORT.md` |
+| **workforce-showcase** | Full-stack showcase monorepo: frontend SPA, local API proxy, dev hub, build tooling, docs | 🟡 Partial | ❌ NO-GO (documented explicitly) | 32 TS errors; browser-validation workflow never triggered (dispatch-only); `hospitable.db` committed | Fix lib declaration files; trigger browser-validation workflow; resolve TypeScript errors |
+| **workforce-console** | Mixed frontend+backend repo: FastAPI backend (`workforce_api/`) + React/Vite SPA (`workforce_frontend_app/`) | 🔴 Degraded | ❌ NO-GO (login returning 500/503 in production) | Login 500 due to unprovisioned DB; unclear deployment topology; no CI | Run `alembic upgrade head` + seed on production DB; create `REPO_EVALUATION_REPORT.md` |
 
 ---
 
@@ -69,20 +69,21 @@ The Workforce platform is a multi-repo system consisting of a Python/FastAPI bac
 
 | Compatibility Area | Status | Evidence | Risk | Required Action |
 |---|---|---|---|---|
-| **Backend API contracts** | 🟡 Partial | `lib/api-spec/openapi.yaml` defines auth, rooms, tasks, shifts, assignments; proxy extends with workforce, inspections, maintenance, inventory, studio, promotions, admin routes not in spec | Drift between spec and live backend | Expand OpenAPI spec to cover all proxied routes; add contract tests |
-| **Frontend API clients** | 🟡 Partial | `lib/api-client-react` is the generated client; declaration files not built — 32 TS import errors in console | Frontend imports will fail type checks at build time | Build lib declarations; regenerate from spec |
-| **Auth / login flow** | 🟡 Partial | Frontend POSTs `{ email, password, business_id: null }` to `/api/v1/auth/login`; spec returns `{ access_token, token_type }`; proxy also handles local credential overrides | Local overrides bypass upstream; token field name `access_token` must match across all repos | Verify all clients use `access_token`; document local override purpose |
-| **`/auth/me` shape** | 🟡 Partial | Spec defines `SessionInfo`; frontend maps both flat `{ id, email }` and nested `{ user: { id, email } }` response shapes | Backend may return one shape; frontend tolerates both via `mapToSessionInfo` — but mismatch risk if backend changes | Canonicalize to one response shape; update spec |
-| **User/session model** | 🟡 Partial | `SessionInfo` in spec: `id, email, memberships, active_business_id, roles, permissions`; frontend also reads `is_active, is_superadmin` which are not in spec | Fields outside spec may be missing or renamed in production | Add `is_active`, `is_superadmin` to spec or document as extensions |
-| **RBAC expectations** | 🔴 Mismatch risk | Frontend checks `hasPermission("owner:*")`, `hasPermission("business:owner")`, `hasRole("owner")`, `isSuperAdmin()` via `"superadmin:*"` permission; backend RBAC implementation is unverified | Frontend RBAC checks may not match backend enforcement | Document and verify role/permission naming conventions across repos |
-| **Employee/user separation** | 🟡 Partial | `/auth/me/access-context` separates user identity from employee profiles (`user_employee_links` → `employee_profiles`); employment scope fetched separately | Upstream backend may not implement `access-context` endpoint — only local proxy is confirmed | Verify upstream has `/auth/me/access-context`; document fallback behavior |
-| **Business/location scoping** | 🟡 Partial | `active_business_id` in session; location assignments in `employee_role_assignments`; Vite proxy routes `/api/v1/business` to local proxy | No multi-location scoping tested end-to-end | Add integration test for location-scoped API calls |
-| **Environment variables** | 🟡 Partial | `VITE_API_BASE_URL` (optional), `VITE_DEMO_MODE`, `PORT` (required), `BASE_PATH` (required), `VITE_API_PROXY_TARGET`; `.env.production` sets `VITE_API_BASE_URL=https://hn3t.pythonanywhere.com` | `PORT` and `BASE_PATH` required by vite.config.ts — missing in production env would fail build | Document all required env vars in a single `.env.example` at repo root; verify CI sets them |
-| **Deployment domains** | 🟡 Partial | `hn3t.pythonanywhere.com` (backend/prod), `wf-hn3t.pythonanywhere.com` (frontend?), `devhub-hn3t.pythonanywhere.com` (dev hub?) | Domain-to-app mapping not formally documented; CORS not confirmed for all combinations | Create a deployment topology document; verify CORS headers on each domain |
-| **Build systems** | 🟡 Partial | workforce-showcase: pnpm + Vite + TypeScript project references; api-server: Node.js/ESM; workforce-backup/console standalone: UNKNOWN | Build config divergence could cause different output formats or missing assets | Standardize build process documentation across repos |
-| **Generated types/schemas** | 🔴 Broken | `lib/api-client-react` generated from `lib/api-spec/openapi.yaml` via orval; declaration files not built; 32 TS errors result | Frontend type safety is compromised | Fix generation pipeline; commit generated declarations or build in CI |
-| **CI/CD** | 🔴 Broken | `.github/workflows/playwright-browser-validation.yml` prepared but never pushed to remote (PAT lacked `workflow` scope); no CI runs have passed | No automated quality gate exists | Resolve PAT permissions; push workflow; verify run passes |
-| **Docs / devhub / showcase links** | 🟡 Partial | `developer_hub/index.html` present; `docs/ADMIN/frontend/` has operational runbooks; `docs/planning/` has templates; cross-repo links reference `/home/hn3t/workforce/` absolute paths which don't exist in this environment | Docs reference machine-local absolute paths; broken in any other environment | Replace absolute paths with repo-relative paths or GitHub URLs |
+| **Backend API contracts** | 🔴 Mismatch risk | workforce-showcase has `lib/api-spec/openapi.yaml` (partial); workforce-console has `workforce_api/apps/api/` FastAPI backend with its own routes; no shared OpenAPI spec between the two backends | Two separate backends serving the same frontend clients — contracts may differ silently | Publish a canonical shared OpenAPI spec; align both backends to it |
+| **Frontend API clients** | 🟡 Partial | workforce-showcase: `lib/api-client-react` (generated from spec, declarations not built — 32 TS errors); workforce-console: `workforce_frontend_app/` uses direct HTTP calls to `workforce_api/` | Frontend imports will fail type checks in showcase; console frontend client alignment unknown | Build showcase lib declarations; verify console frontend uses typed client |
+| **Auth / login flow** | 🔴 Broken (console) | workforce-showcase frontend POSTs `{ email, password, business_id: null }` to `/api/v1/auth/login`; workforce-console backend login was returning 500 (now 503 on error); full fix requires DB migration + seed | Users cannot authenticate to workforce-console production | Run `alembic upgrade head` + seed; fix login endpoint; verify response contract matches frontend expectation |
+| **`/api/v1/bootstrap` endpoint** | 🟡 Partial | workforce-console backend: GET `/api/v1/bootstrap` confirmed returning 200 JSON `{user, businesses, locations, roles, features}` (`CURRENT_STATE.md`, 2026-04-18); not present in workforce-showcase OpenAPI spec | Bootstrap contract implemented in console but absent from showcase spec — clients may expect different shapes | Add bootstrap contract to shared spec; verify showcase frontend consumes it |
+| **`/auth/me` shape** | 🟡 Partial | workforce-showcase spec defines `SessionInfo`: `{ id, email, memberships[], active_business_id?, roles?, permissions? }`; frontend tolerates both flat and nested shapes; workforce-console backend shape unknown | Backend may return different shapes across repos | Canonicalize to one response shape; update spec in both repos |
+| **User/session model** | 🟡 Partial | workforce-showcase frontend reads `is_active`, `is_superadmin` not in spec; workforce-console has `workforce_api/apps/api/app/models/user_employee_link.py` (candidate employee link model) | Fields not in spec; employee model exists in console but migration/verification status unknown | Add `is_active`, `is_superadmin` to spec; verify employee link model migration in console |
+| **RBAC expectations** | 🔴 Mismatch risk | workforce-showcase frontend checks `hasPermission("owner:*")`, `hasPermission("business:owner")`, `isSuperAdmin()` via `"superadmin:*"`; workforce-backup canonical RBAC uses `atomic permission codes` (e.g., `schedule:read`) per `DECISIONS.md` D-0011; permission string formats differ | Frontend RBAC checks will not match backup's atomic permission code model | Publish canonical permission string format; update frontend to match backup's model |
+| **Employee/user separation** | 🟡 Partial | workforce-backup DECISIONS.md D-0011: `ScopedRoleAssignment` links `Role` to `Membership` (user↔business), optionally scoped to `Location`; workforce-console has candidate `employee.py` + `user_employee_link.py` models [NEEDS VERIFICATION]; workforce-showcase proxies `/auth/me/access-context` locally | All three have partial implementations; no end-to-end test | Define shared employee/user link spec; test across repos |
+| **Business/location scoping** | 🟡 Partial | workforce-backup D-0011: `ScopedRoleAssignment.location_id` NULL = business-wide; workforce-showcase: `active_business_id` in session + `employee_role_assignments`; workforce-console: `GET /api/v1/bootstrap` returns `{businesses, locations}` | Scoping model exists in all repos but implementations may differ | Align scoping model; document the canonical shape |
+| **Environment variables** | 🟡 Partial | workforce-showcase: `VITE_API_BASE_URL=https://hn3t.pythonanywhere.com` in `.env.production`; `PORT` and `BASE_PATH` required; workforce-backup: `SKIP_WORKFORCE_MODELS=1` required; workforce-console: PYTHONPATH, DB URL, deployment vars unclear | Missing required env vars cause boot failures | Create `.env.example` per repo; document all required vars |
+| **Deployment domains** | 🔴 Unclear | workforce-showcase: `hn3t.pythonanywhere.com` (backend), `wf-hn3t.pythonanywhere.com` (frontend?), `devhub-hn3t.pythonanywhere.com` (dev hub?); workforce-backup CORS allowlist adds `https://hospitable-web.onrender.com` (Render frontend); PythonAnywhere vs Render mismatch | Two deployment targets (PythonAnywhere and Render) referenced across repos — unclear which is canonical | Create a deployment topology document mapping each domain/host to its serving app |
+| **Build systems** | 🟡 Partial | workforce-showcase: pnpm + Vite + TypeScript project references; workforce-backup: Poetry + pytest; workforce-console: Poetry (backend) + Vite (frontend) | Heterogeneous build systems; no unified CI across repos | Document per-repo build commands; add CI to workforce-console |
+| **Generated types/schemas** | 🔴 Broken (showcase) | workforce-showcase: `lib/api-client-react` generated via orval from `lib/api-spec/openapi.yaml`; declaration files not built; 32 TS errors | Frontend type safety compromised in showcase | Fix generation pipeline; commit generated declarations or build in CI |
+| **CI/CD** | 🟡 Passing (showcase regular CI); 🟡 Fixed (backup); ❌ Missing (console) | workforce-showcase: regular Playwright CI (`playwright-ci.yml`, push/PR) has passed on master and PRs; browser-validation workflow (`playwright-browser-validation.yml`, `workflow_dispatch`-only) has never been triggered; workforce-backup: `.github/workflows/ci.yml` and `backend-ci.yml` added and fixed (2026-05-03 WORKLOG); workforce-console: no CI workflows visible | No automated quality gate for dist-staging in showcase; no CI in console | Trigger browser-validation workflow in showcase; add CI to workforce-console |
+| **Docs / devhub / showcase links** | 🟡 Partial | workforce-showcase: `developer_hub/index.html` present; cross-repo docs reference `/home/hn3t/...` absolute paths; workforce-console: `docs/00_START_HERE/` has structured docs; workforce-backup: `docs/` has architecture, decisions, roadmap | Machine-local paths break in CI and other environments | Replace absolute paths with repo-relative paths or GitHub URLs |
 
 ---
 
@@ -90,82 +91,86 @@ The Workforce platform is a multi-repo system consisting of a Python/FastAPI bac
 
 ### Login Endpoint (`POST /api/v1/auth/login`)
 
-| Aspect | OpenAPI Spec | Frontend Assumption | API Proxy Behavior | Status |
+| Aspect | OpenAPI Spec (showcase) | Frontend Assumption (showcase) | workforce-console Backend | Status |
 |---|---|---|---|---|
-| Request body | `{ email, password }` | `{ email, password, business_id: null }` | Passes body through to upstream or local override | 🟡 Mismatch: `business_id` field sent but not in spec |
-| Success response | `{ access_token, token_type }` | Reads `access_token`; ignores `business_id`, `user` if present | Returns `{ access_token, token_type: "bearer" }` from local override | ✅ Aligned |
-| Error response | `{ detail: string }` with HTTP 401 | Reads `errorData.detail` or `errorData.message` | Returns `{ detail }` for local errors | ✅ Aligned |
+| Request body | `{ email, password }` | `{ email, password, business_id: null }` | Endpoint implemented; was returning 500 in production (PROGRESS_REPORT.md 2026-04-18) | 🔴 Console backend broken in production; `business_id` field sent but not in spec |
+| Success response | `{ access_token, token_type }` | Reads `access_token` | Unknown — depends on DB returning user record | 🟡 Assumed aligned when functional |
+| Error response | `{ detail: string }` with HTTP 401 | Reads `errorData.detail \|\| errorData.message` | Returns 503 on unhandled exceptions (PROGRESS_REPORT.md: "login endpoint now returns 503 Service Unavailable on unexpected errors") | ⚠️ 503 is not 401 — frontend may not handle 503 gracefully |
+
+### `/api/v1/bootstrap` Endpoint (`GET /api/v1/bootstrap`)
+
+| Aspect | OpenAPI Spec (showcase) | workforce-console Backend | Status |
+|---|---|---|---|
+| Endpoint existence | ❌ Not in showcase OpenAPI spec | ✅ Confirmed (CURRENT_STATE.md 2026-04-18): returns 200 `{user, businesses, locations, roles, features}` | 🔴 Not in spec; no shared contract |
+| Frontend consumer | Showcase frontend does not call `/api/v1/bootstrap` | Console frontend: `auth-context.tsx` uses GET `/api/v1/bootstrap` when no token | ⚠️ Different bootstrap strategies across frontends |
 
 ### `/auth/me` Endpoint (`GET /api/v1/auth/me`)
 
-| Aspect | OpenAPI Spec | Frontend Assumption | API Proxy Behavior | Status |
+| Aspect | OpenAPI Spec (showcase) | Frontend Assumption (showcase) | workforce-console Backend | Status |
 |---|---|---|---|---|
-| Response shape | `SessionInfo`: `{ id, email, memberships[], active_business_id?, roles?, permissions? }` | Tolerates both flat `{ id, email }` and nested `{ user: { id, email } }` | Returns flat user JSON from local session | 🟡 Frontend handles both but spec only defines flat |
-| `is_active` field | Not in spec | Read from `data.user?.is_active` | Present in local user JSON (`buildMinimalUser`) | ⚠️ Unknown: may or may not be in upstream response |
-| `is_superadmin` field | Not in spec | Read from `data.user?.is_superadmin` | Not set in `buildMinimalUser` | ⚠️ Unknown: may or may not be in upstream response |
-
-### `/auth/me/access-context` Endpoint
-
-| Aspect | OpenAPI Spec | Frontend Assumption | API Proxy Behavior | Status |
-|---|---|---|---|---|
-| Endpoint existence | Not in spec | Called after `/auth/me`; failure silently caught | Implemented in local proxy via SQLite queries | 🔴 Not in spec; upstream support unverified |
-| Response shape | Not in spec | `{ user_id, has_access, active_scope_count, scopes[] }` | Returns structured scopes from local DB | ⚠️ Unknown for upstream |
+| Response shape | `SessionInfo`: `{ id, email, memberships[], active_business_id?, roles?, permissions? }` | Tolerates both flat `{ id, email }` and nested `{ user: { id, email } }` | Unknown — not observable via remote file read | ⚠️ Cannot verify without running console backend |
+| `is_active` field | Not in spec | Read from `data.user?.is_active` | Unknown | ⚠️ Unknown |
+| `is_superadmin` field | Not in spec | Read from `data.user?.is_superadmin` | Unknown | ⚠️ Unknown |
 
 ### Registration / Create-User
 
 | Aspect | Status |
 |---|---|
-| Registration endpoint | ❌ Not in OpenAPI spec; not found in frontend; local reset endpoint (`POST /auth/reset`) provides credential override only |
-| User creation flow | ⚠️ Unknown — presumably handled by upstream backend outside this repo |
+| Registration endpoint (showcase) | ❌ Not in showcase OpenAPI spec; not in showcase frontend; local `/auth/reset` provides credential override only |
+| Registration endpoint (console) | ✅ `POST /api/v1/auth/register` added (PROGRESS_REPORT.md: "branch fix/add-register-endpoint commit 40b0726"); tests added in `tests/test_auth_endpoints.py` |
+| Cross-repo alignment | 🔴 Mismatch: console has `/auth/register`; showcase spec/frontend does not; frontend cannot use it without changes |
 
 ### Employee/User Linking
 
 | Aspect | Status |
 |---|---|
-| `user_employee_links` table | ✅ Present in local SQLite DB via `artifacts/api-server` |
-| Frontend consumption | ✅ `EmploymentScope` interface defined; `employmentScope` stored in auth context |
-| Upstream backend support | ⚠️ UNKNOWN — verify `wf-hn3t.pythonanywhere.com` or `hn3t.pythonanywhere.com` implements this |
+| workforce-backup RBAC | ✅ `ScopedRoleAssignment` links `Role` to `Membership` (user↔business), optionally scoped to `Location` (DECISIONS.md D-0011) |
+| workforce-console candidate models | `apps/api/app/models/employee.py` and `user_employee_link.py` added (CURRENT_STATE.md 2026-04-18) — status: `[NEEDS MIGRATION AND VERIFICATION]` |
+| workforce-showcase proxy | ✅ `/auth/me/access-context` implemented locally via SQLite; upstream support unverified |
+| Cross-repo alignment | 🔴 Three different implementations; no shared spec |
 
 ### Business/Location Scoping
 
 | Aspect | Status |
 |---|---|
-| `active_business_id` in session | ✅ In spec and frontend |
-| Location-scoped resource queries | 🟡 Present in employee_role_assignments locally; not verified for upstream |
-| Multi-business switching | ✅ `/auth/switch-business` in spec; implemented in frontend and proxy passes to upstream |
+| workforce-backup | ✅ `ScopedRoleAssignment.location_id` NULL = business-wide (D-0011); `location_aware_permission` dependency added (WORKLOG 2026-04-28) |
+| workforce-showcase | ✅ `active_business_id` in session; `employee_role_assignments` in local DB; `/auth/switch-business` in spec |
+| workforce-console | ✅ GET `/api/v1/bootstrap` returns `{businesses, locations}` |
 
 ### Role/Permission Naming Conventions
 
-| Convention | Evidence | Status |
+| Convention | workforce-showcase Frontend | workforce-backup Backend | Status |
 |---|---|---|
-| `"owner:*"` permission string | Used in `hasPermission` | ⚠️ Not in spec; assumed upstream convention |
-| `"business:owner"` permission string | Used in `hasPermission` | ⚠️ Not in spec |
-| `"superadmin:*"` permission string | Used in `isSuperAdmin()` | ⚠️ Not in spec |
-| `roles` array with lowercase role names | Used in `hasRole()` | 🟡 Spec defines `roles: string[]` without enumerating values |
+| Wildcard permission strings | `"owner:*"`, `"business:owner"`, `"superadmin:*"` | Atomic codes (e.g., `schedule:read`) per D-0011 | 🔴 Mismatch: frontend uses wildcards; backup uses atomic codes |
+| Role names | `hasRole("owner")` | Role names set at migration time; exact strings not in spec | ⚠️ Cannot verify without checking backup's seeded roles |
+| Permission resolution | Client-side via `hasPermission()` | Server-side via `rbac_service.py` (`Role → RolePermission → Permission.code`) | 🔴 No shared permission catalogue; client/server may check different strings |
 
 ### Error Response Shape
 
 | Aspect | OpenAPI Spec | Frontend Assumption | Status |
 |---|---|---|
-| Error body | `{ detail: string }` | Reads `errorData.detail \|\| errorData.message` | ✅ Aligned (frontend handles both gracefully) |
-| HTTP status codes | 401 for auth, 422 for validation | `ApiError` captures `.status` | ✅ Aligned |
+| Error body | `{ detail: string }` | Reads `errorData.detail \|\| errorData.message` | ✅ Aligned for 4xx errors (frontend handles both gracefully) |
+| HTTP 503 from console | Not in spec | Frontend likely not handling 503 | ⚠️ Login 503 in console will present as unexpected error in frontend |
 
 ### CORS / Frontend Origin Assumptions
 
 | Aspect | Evidence | Status |
 |---|---|---|
-| Dev CORS | Vite proxy forwards `/api/v1` → `hn3t.pythonanywhere.com` — no CORS needed in dev | ✅ OK for development |
-| Production CORS | `.env.production` sets `VITE_API_BASE_URL=https://hn3t.pythonanywhere.com`; frontend will make cross-origin requests | 🔴 Backend must have CORS header allowing the production frontend origin |
-| PythonAnywhere CORS config | Not observable from this repo | ⚠️ Must be verified on backend |
+| workforce-showcase dev CORS | Vite proxy forwards `/api/v1` → `hn3t.pythonanywhere.com` | ✅ OK for development |
+| workforce-showcase production CORS | `.env.production` sets `VITE_API_BASE_URL=https://hn3t.pythonanywhere.com` | 🔴 Must verify `Access-Control-Allow-Origin` on PythonAnywhere backend |
+| workforce-backup CORS | Added `https://hospitable-web.onrender.com` (WORKLOG 2026-05-03); PythonAnywhere origins not added | 🔴 PythonAnywhere frontend origins still not in CORS allowlist |
+| workforce-console CORS | Not observable from file reads | ⚠️ `[NEEDS VERIFICATION]` |
 
 ### Required Contract Specifications (Currently Missing)
 
-1. Canonical response shape for `/auth/me` (flat vs nested)
-2. Canonical permission string format (`owner:*`, `business:owner`, `superadmin:*`)
-3. Formal spec for `/auth/me/access-context`
-4. Spec for all routes proxied by api-server but absent from `openapi.yaml`: `/workforce`, `/inspections`, `/maintenance`, `/inventory`, `/studio`, `/promotions`, `/admin`, `/notifications`, `/business`, `/hospitable`
-5. Registration/create-user endpoint spec
-6. CORS policy documentation for all deployment domains
+1. Canonical response shape for `/auth/me` (flat vs nested; `is_active`, `is_superadmin` fields)
+2. Canonical permission string format (atomic codes per backup's D-0011 vs wildcard strings used by showcase frontend)
+3. Formal shared spec for `/api/v1/bootstrap` (already implemented in console; absent from showcase spec)
+4. Formal spec for `/auth/me/access-context`
+5. Spec for all routes proxied by showcase api-server but absent from `openapi.yaml`: `/workforce`, `/inspections`, `/maintenance`, `/inventory`, `/studio`, `/promotions`, `/admin`, `/notifications`, `/business`, `/hospitable`
+6. Alignment spec for registration/create-user endpoint (console has `/auth/register`; showcase does not)
+7. CORS policy documentation for all deployment domains (PythonAnywhere + Render)
+8. Canonical employee/user link model spec shared across repos
 
 ---
 
@@ -173,59 +178,69 @@ The Workforce platform is a multi-repo system consisting of a Python/FastAPI bac
 
 | Component | Domain/Target | Build/Runtime | Env Vars | Health Check | Status | Blockers |
 |---|---|---|---|---|---|---|
-| **Frontend SPA** (workforce-console) | `https://wf-hn3t.pythonanywhere.com` (assumed) | Vite build → `dist/public`; served by Flask `app.py` | `PORT` ✅ required, `BASE_PATH` ✅ required, `VITE_API_BASE_URL` ✅ set in `.env.production` | None (SPA, no `/healthz`) | ❌ NO-GO | 32 TS errors; CI never passed; Playwright validation blocked |
-| **Local API Proxy** (api-server) | `localhost:8080` (dev only) | Node.js/ESM; `npm run dev` / `node dist/index.js` | None documented | None | 🟡 Dev-only; not deployed to PythonAnywhere | No production deployment target documented |
-| **Backend API** (upstream) | `https://hn3t.pythonanywhere.com` | Python/FastAPI (assumed) on PythonAnywhere | Unknown from this repo | `/api/healthz` defined in spec but not confirmed live | ⚠️ Unknown | Health check not verified; CORS not confirmed |
-| **Developer Hub** | `https://devhub-hn3t.pythonanywhere.com` (assumed) | Static HTML (`developer_hub/index.html`) | None | None | ⚠️ Unknown | Domain mapping not confirmed in this repo |
-| **Database** (SQLite) | `hospitable.db` in repo root | SQLite via Drizzle ORM (`lib/db`) | None | None | ⚠️ Dev/local only | `hospitable.db` committed to repo (security risk — may contain real data) |
+| **Frontend SPA** (showcase) | `https://wf-hn3t.pythonanywhere.com` (assumed) | Vite build → `dist/public`; served by Flask `app.py` | `PORT` ✅ required, `BASE_PATH` ✅ required, `VITE_API_BASE_URL` ✅ set in `.env.production` | None (SPA) | ❌ NO-GO | 32 TS errors; browser-validation workflow (`playwright-browser-validation.yml`) not yet triggered (dispatch-only); regular Playwright CI passing |
+| **Local API Proxy** (showcase api-server) | `localhost:8080` (dev only) | Node.js/ESM; `npm run dev` / `node dist/index.js` | None documented | None | 🟡 Dev-only | No production deployment target documented |
+| **Platform Backend** (backup) | `https://hn3t.pythonanywhere.com` or Render (`https://hospitable-web.onrender.com` added to CORS) | Python/FastAPI via Poetry + `wsgi.py` (a2wsgi); PythonAnywhere WSGI or Render web service | `SKIP_WORKFORCE_MODELS=1` ✅ set in `main.py` + `wsgi.py`; `PYTHONPATH=apps/api`; PostgreSQL URL required in prod | `/api/healthz` (defined in spec; not confirmed live) | 🟡 Partial | PostgreSQL migration unverified; `foundation-v0.1` tag not cut; PythonAnywhere origins not in CORS |
+| **Console Backend** (`workforce_api/`) | `https://hn3t.pythonanywhere.com` or local (ports 8002/8003 per PROGRESS_REPORT.md) | Python/FastAPI + uvicorn; Alembic migrations | PYTHONPATH, DB URL, SKIP_WORKFORCE_MODELS unknown in prod | None confirmed | 🔴 Broken | Login returning 500/503; DB migrations not run on production; host mapping unclear |
+| **Console Frontend** (`workforce_frontend_app/`) | Unknown — artifact delivery path unclear (CURRENT_STATE.md: "Frontend artifact host — Needs verification") | Vite build in `workforce_frontend_app/artifacts/workforce-console/` | VITE env vars unknown in prod | None | 🔴 Unknown | Deployment host/path not confirmed in any file |
+| **Developer Hub** | `https://devhub-hn3t.pythonanywhere.com` (assumed) | Static HTML (`developer_hub/index.html`) | None | None | ⚠️ Unknown | Domain mapping not confirmed |
+| **Database** (showcase SQLite) | `hospitable.db` in repo root | SQLite via Drizzle ORM (`lib/db`) | None | None | ⚠️ Dev/local only | `hospitable.db` committed to repo (security risk) |
 
 ---
 
 ## 6. Security / RBAC / Data Integrity Summary
 
 ### Authentication
-- **Token storage:** `workforce_token` stored in `localStorage`. This is XSS-vulnerable. No `httpOnly` cookie alternative is in use.  
-- **Token type:** UUID (not JWT) for local sessions; upstream may return a different token format.
-- **Local credential override:** `POST /auth/reset` creates local DB overrides — intended for dev, but if the api-server is accessible on a deployed host, this endpoint allows anyone to set a password for any email.
+- **Token storage (showcase + console frontend):** `workforce_token` stored in `localStorage`. XSS-vulnerable. No `httpOnly` cookie alternative.
+- **Token type:** UUID (not JWT) for local sessions (showcase); JWT or session token format for console backend unknown.
+- **Local credential override (showcase):** `POST /auth/reset` creates local DB overrides — no auth guard; must never be deployed to a production-accessible host.
+- **Login 500/503 (console):** Production login is broken due to unprovisioned DB. Temporary 503 mitigation added but root cause (missing migrations + seed) not resolved.
 
 ### RBAC
-- Permission strings (`owner:*`, `business:owner`, `superadmin:*`) are assumed conventions not formally specified. Frontend enforces them client-side; server-side enforcement is unverified from this repo.
-- Employee permission checks (`hasEmployeePermission`) use a separate `effectivePermissions` array from the access-context endpoint. This separation is architecturally sound but only implemented locally.
-- No role hierarchy is documented. Overlap between `hasRole("owner")`, `hasPermission("owner:*")`, and `isMember(role="owner")` creates potential gaps.
+- **workforce-backup canonical RBAC (DECISIONS.md D-0011):** `memberships → ScopedRoleAssignment → Role → RolePermission → Permission.code`. Atomic permission codes (e.g., `schedule:read`). `GET /api/v1/me/effective-permissions` endpoint added (WORKLOG 2026-04-28).
+- **workforce-backup legacy surface (frozen per D-0004):** `biz_roles / biz_role_permissions / membership_roles / membership_location_roles` in `packages/workforce/workforce/app/models/identity.py` — NOT created by any canonical migration; NOT used by runtime API. `SKIP_WORKFORCE_MODELS=1` guard required to prevent double SQLAlchemy table registration. Boot fails without this guard.
+- **workforce-showcase frontend RBAC:** Permission strings (`owner:*`, `business:owner`, `superadmin:*`) are client-side only. No shared catalogue. Mismatches with backup's atomic codes confirmed.
+- **RBAC gap:** No mapping table between backup's atomic permission codes and showcase's wildcard strings exists anywhere in any repo.
 
 ### Tenant/Business/Location Scoping
-- `active_business_id` is in the session and enforced (assumed) by the upstream backend.
-- Location scoping via `employee_role_assignments` is implemented locally; upstream enforcement is unverified.
-- `SILVER_SANDS_BUSINESS_ID = "biz-silver-sands"` is hardcoded in the local proxy — must not reach production without parameterization.
+- **workforce-backup:** `ScopedRoleAssignment.location_id` NULL = business-wide, non-NULL = location-scoped. `resolve_location_from_query` helper + location-aware permission dependency added (WORKLOG 2026-04-28).
+- **workforce-showcase:** `active_business_id` in session; `employee_role_assignments` locally. `SILVER_SANDS_BUSINESS_ID = "biz-silver-sands"` hardcoded — must not reach production.
+- **workforce-console:** Bootstrap returns `{businesses, locations}` — scoping model partially present.
 
 ### User/Employee Separation
-- Architecturally correct: `user_employee_links` table separates identity (users) from employment (employee profiles).
-- Frontend correctly fetches employment scope separately and exposes it as `employmentScope`.
-- Risk: if a user has no employee profile, `employmentScope` is null and `hasEmployeePermission` always returns false — this could silently deny access.
+- **workforce-backup:** `Membership` (user ↔ business); `ScopedRoleAssignment` (role scoping); no separate employee model in canonical surface (packages/workforce has one but is frozen).
+- **workforce-console:** Candidate `employee.py` + `user_employee_link.py` models added (2026-04-18) — `[NEEDS MIGRATION AND VERIFICATION]`.
+- **workforce-showcase:** `user_employee_links` + `employee_profiles` in local SQLite; `EmploymentScope` in frontend.
+- **Risk:** Three diverged implementations with no shared migration or spec.
 
 ### Admin Tooling
-- `/api/v1/admin` routes exist in the Vite proxy config targeting `localhost:8080`; admin route implementation in `artifacts/api-server/src/admin` is not reviewed here.
-- No admin authentication guard is confirmed beyond the standard Bearer token check.
+- workforce-showcase: `/api/v1/admin` routes proxied to `localhost:8080`; admin auth guard unconfirmed.
+- workforce-backup: No admin-specific tooling observed in accessible docs.
+- workforce-console: No admin tooling confirmed.
 
 ### CORS
-- Dev: Vite proxy avoids CORS. ✅
-- Production: Frontend calls `hn3t.pythonanywhere.com` directly. CORS must be configured. **Not confirmed.** 🔴
+- workforce-backup: `https://hospitable-web.onrender.com` added to CORS allowlist (2026-05-03). PythonAnywhere frontend origins (`wf-hn3t.pythonanywhere.com`) NOT in allowlist. 🔴
+- workforce-showcase dev: Vite proxy avoids CORS. ✅ Production: calls `hn3t.pythonanywhere.com` cross-origin. 🔴 Not confirmed.
+- workforce-console: CORS config not observable from remote file reads. ⚠️ `[NEEDS VERIFICATION]`
 
 ### Secrets
-- `hospitable.db` (SQLite) is committed to the repo root — if it contains real user/business data, this is a data exposure risk.
-- `.env.production` contains the production API URL in plain text — acceptable, but should be reviewed if it ever contains tokens.
-- No secrets were observed hardcoded in source code beyond the `biz-silver-sands` business ID.
+- `hospitable.db` (SQLite) committed to showcase repo root — potential real data exposure. 🔴
+- `DECISIONS.md D-0005` (backup): "Local databases and database backups are never tracked" — policy correct but showcase violates this.
+- workforce-backup: `.env*` files properly excluded per D-0005.
+- No secrets hardcoded in backup or console source code (confirmed via accessible file reads).
 
 ### Deployment Config
-- `BASE_PATH` and `PORT` are required at build time. If not set in CI/deployment, the build throws immediately.
-- `VITE_API_PROXY_TARGET` defaults to `https://hn3t.pythonanywhere.com` — acceptable for dev.
+- workforce-backup: `SKIP_WORKFORCE_MODELS=1` set in `main.py` and `wsgi.py` (WORKLOG 2026-04-28). Missing this causes boot failure.
+- workforce-showcase: `BASE_PATH` and `PORT` required at build time — missing causes build failure.
+- workforce-console: Deployment env var requirements not documented.
 
 ### Generated Files
-- `lib/api-client-react` contains generated TypeScript from the OpenAPI spec. Declaration files are not being built, causing 32 type errors. Generated files should not be manually edited.
+- workforce-showcase: `lib/api-client-react` generated from OpenAPI spec via orval; declaration files not built; 32 TS errors.
+- workforce-backup/console: No generated type client observed.
 
 ### Public/Private Boundary
-- The developer hub (`developer_hub/`) appears to be a public-facing static page. If it links to internal API endpoints or credential reset pages, this should be reviewed.
-- The API proxy's local reset endpoint (`POST /auth/reset`) must never be deployed to a production-accessible host without authentication.
+- workforce-showcase developer hub (`developer_hub/`) is public-facing static HTML. Content not audited for internal endpoint links.
+- workforce-showcase `POST /auth/reset` must never be publicly accessible.
 
 ---
 
@@ -233,44 +248,54 @@ The Workforce platform is a multi-repo system consisting of a Python/FastAPI bac
 
 ### Best Source-of-Truth Docs
 
-| Document | Location | Purpose |
+| Document | Location (Repo) | Purpose |
 |---|---|---|
-| OpenAPI Spec | `lib/api-spec/openapi.yaml` | API contract definition — authoritative for generated types |
-| QA Cutover Plan | `docs/ADMIN/frontend/QA-cutover-plan.md` | Pre-production validation checklist |
-| Frontend Progress Report | `docs/ADMIN/frontend/PROGRESS_REPORT_FRONTEND.md` | Current execution status and NO-GO record |
-| Backend API Contract | `docs/ADMIN/frontend/workforce-project-manager-module/docs/BACKEND_API_CONTRACT.md` | Project manager module API |
+| `docs/DECISIONS.md` (esp. D-0011) | workforce-backup | Canonical RBAC schema decision; authoritative for backend model |
+| `lib/api-spec/openapi.yaml` | workforce-showcase | API contract definition — authoritative for generated types (partial coverage) |
+| `docs/ADMIN/frontend/QA-cutover-plan.md` | workforce-showcase | Pre-production validation checklist |
+| `docs/ADMIN/frontend/PROGRESS_REPORT_FRONTEND.md` | workforce-showcase | Current execution status and NO-GO record |
+| `docs/00_START_HERE/CURRENT_STATE.md` | workforce-console | Evidence-based snapshot of backend/frontend state (2026-04-18) |
+| `docs/00_START_HERE/CANONICAL_SOURCES.md` | workforce-console | Exact source mapping for console repo artifacts |
+| `docs/ROADMAP.md` | workforce-backup | Phase-by-phase delivery plan (Phase 0 through 6) |
+| `docs/reports/REPO_EVALUATION_REPORT.md` | workforce-showcase | Individual repo evaluation (this repo only) |
 
 ### Stale / At-Risk Docs
 
-| Document | Issue |
-|---|---|
-| `docs/plans/HN3T_MASTER_PLAN.md` | Points to `/home/hn3t/workforce/HN3T_MASTER_PLAN.md` — machine-local absolute path that doesn't exist in this environment |
-| `.copilot_frontend/state.json` | References `active_repo: /home/hn3t/workforce_frontend_app` — machine-local path |
-| `docs/ADMIN/frontend/QA-cutover-plan.md` | References `/home/hn3t/workforce_frontend_app/...` paths throughout — will be invalid outside original host |
-| `route-validation-summary.md` (repo root) | Appears to be a generated artifact committed to repo root — consider moving to `docs/` or `docs/ADMIN/frontend/artifact-diffs/` |
+| Document | Repo | Issue |
+|---|---|---|
+| `docs/plans/HN3T_MASTER_PLAN.md` | workforce-showcase | Points to `/home/hn3t/workforce/HN3T_MASTER_PLAN.md` — machine-local absolute path |
+| `.copilot_frontend/state.json` | workforce-showcase | References `active_repo: /home/hn3t/workforce_frontend_app` — machine-local path |
+| `docs/ADMIN/frontend/QA-cutover-plan.md` | workforce-showcase | References `/home/hn3t/workforce_frontend_app/...` paths throughout |
+| `PROGRESS_REPORT.md` (root) | workforce-console | Contains raw machine session log (local paths, port numbers, manual commands); not a clean canonical doc |
+| `workforce_new/` | workforce-console | Legacy/experimental backend surface; explicitly flagged as "do not treat as active by default" |
 
 ### Missing Docs
 
-| Missing Document | Why Needed |
-|---|---|
-| Deployment topology map | No single document maps each domain to its serving application |
-| CORS policy specification | Required before any production deployment |
-| Permission/role naming conventions | Required to verify frontend ↔ backend RBAC alignment |
-| Env var reference | No root-level `.env.example` consolidating all required vars across packages |
-| `workforce-backup` evaluation report | Not present; repo not accessible |
-| `workforce-console` standalone evaluation report | Not present in this repo |
+| Missing Document | Where Needed | Why |
+|---|---|---|
+| `docs/reports/REPO_EVALUATION_REPORT.md` | workforce-backup | Required by issue #19; not yet created |
+| `docs/reports/REPO_EVALUATION_REPORT.md` | workforce-console | Required by issue #18; not yet created |
+| Deployment topology map | All repos | No single document maps each domain/host to its serving application |
+| CORS policy specification | All repos | Required before any production deployment |
+| Canonical permission/role naming conventions | All repos | Required to verify frontend ↔ backend RBAC alignment |
+| Shared `.env.example` | All repos | No consolidated env var reference |
+| `docs/boundary/pythonanywhere-matrix.md` | workforce-console | PythonAnywhere host mapping identified as missing in EXECUTION_QUEUE.md |
+| Employee/user link spec | All repos | Three diverged implementations; no shared spec |
 
 ### Duplicated Docs
-- `route-validation-summary.md` exists both at repo root and in `docs/ADMIN/frontend/artifact-diffs/` — root copy should be removed or symlinked.
+- `route-validation-summary.md` exists both at showcase repo root and in `docs/ADMIN/frontend/artifact-diffs/` — root copy should be removed.
+- `WORKFORCE_CROSS_REPO_EVALUATION_REPORT.md` exists in workforce-backup's `docs/reports/` — backup has its own version of this cross-repo report from a previous session (2026-05-03). The authoritative version is in workforce-showcase.
 
 ### Docs to Surface in Showcase/Devhub
 - `docs/ADMIN/frontend/PROGRESS_REPORT_FRONTEND.md` — production readiness status
 - `docs/ADMIN/frontend/QA-cutover-plan.md` — deployment gate checklist
 - `lib/api-spec/openapi.yaml` — served as interactive API docs (Swagger UI/Redoc)
+- workforce-backup `docs/DECISIONS.md` — canonical architectural decisions
 
 ### Docs to Archive
-- `docs/ADMIN/frontend/CI_TRIGGER_ATTEMPT.md` — recording of a failed push; useful for history, but should be archived in `docs/ADMIN/frontend/archive/` to reduce noise
-- Machine-path references in master plan files — replace or archive
+- `docs/ADMIN/frontend/CI_TRIGGER_ATTEMPT.md` — recording of a failed push; archive in `docs/ADMIN/frontend/archive/`
+- `workforce_new/` (workforce-console) — explicitly marked legacy/experimental; should be archived or removed
+- Machine-path references in master plan files — replace with repo-relative paths
 
 ---
 
@@ -278,16 +303,16 @@ The Workforce platform is a multi-repo system consisting of a Python/FastAPI bac
 
 | Rank | Risk | Repos Affected | Severity | Evidence | Recommended Fix |
 |---|---|---|---|---|---|
-| 1 | **lib/api-client-react declarations not built** — 32 TypeScript errors prevent a clean typecheck/build | workforce-showcase | 🔴 High | `PROGRESS_REPORT_FRONTEND.md`: "imports from lib/api-client-react are failing because the lib's declaration files were not built" | Run `pnpm --filter @workspace/api-client-react run build` in CI; commit output or add to build pipeline |
-| 2 | **No passing CI run** — browser validation workflow was never successfully pushed to remote | workforce-showcase | 🔴 High | `PROGRESS_REPORT_FRONTEND.md`: "refusing to allow a Personal Access Token to create or update workflow without `workflow` scope" | Grant `workflow` scope to PAT; push and run the workflow |
-| 3 | **Unverified CORS on production backend** — frontend in production mode calls `hn3t.pythonanywhere.com` cross-origin | workforce-showcase, workforce-console | 🔴 High | `.env.production` sets `VITE_API_BASE_URL=https://hn3t.pythonanywhere.com`; no CORS config visible from this repo | Verify `Access-Control-Allow-Origin` on backend; document allowed origins |
-| 4 | **`localStorage` token storage** — XSS attack could exfiltrate `workforce_token` | workforce-showcase, workforce-console | 🔴 High | `api-client.ts`: `localStorage.getItem("workforce_token")`; `auth-context.tsx`: `localStorage.setItem("workforce_token", ...)` | Migrate to `sessionStorage` with short-lived tokens or `httpOnly` cookies |
-| 5 | **`hospitable.db` committed to repo** — SQLite database with potentially real business data is tracked in git | workforce-showcase | 🔴 High | `hospitable.db`, `hospitable.db-shm`, `hospitable.db-wal` in repo root; not in `.gitignore` for data files | Add `*.db`, `*.db-shm`, `*.db-wal` to `.gitignore`; purge from git history if real data present |
-| 6 | **Hardcoded `SILVER_SANDS_BUSINESS_ID`** — business ID hardcoded in local API proxy | workforce-showcase | 🟡 Medium | `artifacts/api-server/src/auth/router.ts`: `const SILVER_SANDS_BUSINESS_ID = "biz-silver-sands"` | Parameterize via environment variable; document dev-only purpose |
-| 7 | **Unauthenticated `/auth/reset` endpoint** — anyone can set credentials for any email if api-server is reachable | workforce-showcase | 🟡 Medium | `artifacts/api-server/src/auth/router.ts`: `router.post("/reset", ...)` with no auth guard | Gate this endpoint behind a strong secret or remove from non-dev builds |
-| 8 | **API contract drift** — many proxied routes (`/workforce`, `/inspections`, etc.) are not in the OpenAPI spec | workforce-showcase | 🟡 Medium | `vite.config.ts` proxy entries vs `lib/api-spec/openapi.yaml` paths | Expand OpenAPI spec; add contract tests |
-| 9 | **workforce-backup and workforce-console standalone states unknown** — cannot assess compatibility or health without access | All repos | 🟡 Medium | These repos are inaccessible in this agent session | Access each repo individually and produce evaluation reports; reconcile with this document |
-| 10 | **Machine-local absolute paths in docs** — docs reference `/home/hn3t/...` paths that break in any other environment | workforce-showcase | 🟢 Low | `docs/plans/HN3T_MASTER_PLAN.md`, `.copilot_frontend/state.json`, `docs/ADMIN/frontend/QA-cutover-plan.md` | Replace all absolute paths with repo-relative paths or GitHub permalink URLs |
+| 1 | **Dual RBAC schema in workforce-backup** — `SKIP_WORKFORCE_MODELS=1` guard required; if removed or missing, boot fails due to double SQLAlchemy table registration | workforce-backup | 🔴 High | `DECISIONS.md D-0011`: "SKIP_WORKFORCE_MODELS=1 must remain set at boot… Do not remove this guard until the packages/workforce import path is fully eliminated"; `WORKLOG 2026-04-28`: guard added to `main.py` + `wsgi.py` | Archive `packages/workforce` surface; remove guard when safe; document risk in deploy checklist |
+| 2 | **Login 500/503 in workforce-console production** — users cannot authenticate; root cause is unprovisioned DB | workforce-console | 🔴 High | `PROGRESS_REPORT.md 2026-04-18`: "POST /api/v1/auth/login returns HTTP 500 in production… auth path exercises DB; production DB/migrations or provisioning appears incomplete" | Run `alembic upgrade head` + seed DB on production; verify login returns 200 |
+| 3 | **RBAC permission string mismatch** — showcase frontend uses wildcard strings (`owner:*`); backup backend uses atomic codes (`schedule:read`) | workforce-showcase, workforce-backup | 🔴 High | workforce-showcase `auth-context.tsx` uses `hasPermission("owner:*")`; backup `DECISIONS.md D-0011` defines `Permission.code` as atomic string; no mapping table | Publish canonical permission catalogue; update frontend to use atomic codes or define explicit wildcard → atomic mapping |
+| 4 | **Unverified CORS for PythonAnywhere origins** — production frontend at `wf-hn3t.pythonanywhere.com` calls `hn3t.pythonanywhere.com`; not in CORS allowlist | workforce-showcase, workforce-backup | 🔴 High | backup `WORKLOG 2026-05-03`: only `https://hospitable-web.onrender.com` added; PythonAnywhere origins not added; showcase `.env.production` targets `hn3t.pythonanywhere.com` | Add PythonAnywhere frontend origins to backup CORS allowlist; verify with browser request |
+| 5 | **`hospitable.db` committed to showcase repo** — SQLite DB with potentially real data tracked in git | workforce-showcase | 🔴 High | `hospitable.db`, `hospitable.db-shm`, `hospitable.db-wal` in repo root; not in `.gitignore` for data files | Add `*.db`, `*.db-shm`, `*.db-wal` to `.gitignore`; purge from history if real data; align with backup's D-0005 |
+| 6 | **`localStorage` token storage** — `workforce_token` stored in `localStorage` is XSS-vulnerable | workforce-showcase, workforce-console | 🔴 High | showcase `api-client.ts`: `localStorage.getItem("workforce_token")`; `auth-context.tsx`: `localStorage.setItem(...)` | Migrate to `sessionStorage` with short-lived tokens or `httpOnly` cookies |
+| 7 | **PostgreSQL migration chain unverified in workforce-backup** — only SQLite tested locally; `foundation-v0.1` tag not cut | workforce-backup | 🟡 Medium | `WORKLOG 2026-05-03`: "PostgreSQL migration verification is not possible in this environment"; `TODO.md`: "Verify Alembic migration chain on PostgreSQL before cutting foundation-v0.1 tag" | Provision PostgreSQL in CI; run `alembic upgrade head`; verify 53 tests pass; cut tag |
+| 8 | **`lib/api-client-react` declarations not built** — 32 TypeScript errors prevent clean typecheck/build | workforce-showcase | 🟡 Medium | `PROGRESS_REPORT_FRONTEND.md`: "imports from lib/api-client-react are failing because the lib's declaration files were not built" | Run `pnpm --filter @workspace/api-client-react run build` in CI; commit output or add to build pipeline |
+| 9 | **Browser-validation workflow never triggered in workforce-showcase** — `playwright-browser-validation.yml` is `workflow_dispatch`-only and has 0 runs; regular Playwright CI (`playwright-ci.yml`) has been passing | workforce-showcase | 🟡 Medium | GitHub Actions: `playwright-browser-validation.yml` — 0 runs, `workflow_dispatch` only; `playwright-ci.yml` — 62 runs, passing on master and PRs | Trigger `playwright-browser-validation.yml` manually (workflow_dispatch) with a valid `dist-staging` build; verify passing run |
+| 10 | **Unauthenticated `/auth/reset` endpoint** — anyone can override credentials for any email if api-server is reachable | workforce-showcase | 🟡 Medium | `artifacts/api-server/src/auth/router.ts`: `router.post("/reset", ...)` with no auth guard | Gate behind a strong secret or remove from non-dev builds |
 
 ---
 
@@ -295,46 +320,119 @@ The Workforce platform is a multi-repo system consisting of a Python/FastAPI bac
 
 | Rank | Priority | Repo | Task | Why It Matters |
 |---|---|---|---|---|
-| 1 | 🔴 Critical | workforce-showcase | Build `lib/api-client-react` declaration files and fix TypeScript errors (target: 0 errors) | Prerequisite for a clean build and any production deployment |
-| 2 | 🔴 Critical | workforce-showcase | Grant `workflow` scope to PAT; push Playwright CI workflow; run and pass first CI validation | Without passing CI, there is no automated quality gate — production is gated on this |
-| 3 | 🔴 Critical | workforce-showcase | Verify and document CORS configuration on `hn3t.pythonanywhere.com` | Production frontend makes cross-origin requests that will fail without CORS headers |
-| 4 | 🔴 Critical | workforce-showcase | Remove `hospitable.db*` from git tracking; add to `.gitignore`; audit for real data exposure | Database file committed to repo is a data integrity and privacy risk |
-| 5 | 🔴 Critical | All repos | Access `workforce-backup` and standalone `workforce-console` repos; produce individual evaluation reports; paste findings into this document | Cross-repo evaluation is incomplete without those repos' data |
-| 6 | 🟡 High | workforce-showcase | Complete rollback rehearsal against `dist-staging` using `scripts/restore_operational_artifact.sh` | Rollback must be validated before any production cutover |
-| 7 | 🟡 High | workforce-showcase | Expand `lib/api-spec/openapi.yaml` to cover all proxied routes | Missing spec sections mean no type safety or contract tests for large portions of the API surface |
-| 8 | 🟡 High | workforce-showcase | Migrate `workforce_token` from `localStorage` to a more secure storage mechanism | Token exposure via XSS is a significant auth security risk |
-| 9 | 🟡 High | workforce-showcase | Gate `/auth/reset` endpoint behind authentication or remove from non-dev builds | Unauthenticated credential override is dangerous if api-server reaches production |
-| 10 | 🟢 Medium | workforce-showcase | Replace all machine-local absolute paths in docs with repo-relative paths | Docs must be usable in any environment, including CI runners and new developer machines |
+| 1 | 🔴 Critical | workforce-backup | Verify Alembic migration chain on PostgreSQL and cut `foundation-v0.1` tag | PostgreSQL is the production DB target; SQLite-only validation is insufficient for a production baseline |
+| 2 | 🔴 Critical | workforce-console | Run `alembic upgrade head` + seed DB on production; fix login 500 | Users cannot authenticate; no production value without working login |
+| 3 | 🔴 Critical | workforce-backup | Add PythonAnywhere frontend origins to CORS allowlist | Production showcase frontend at `wf-hn3t.pythonanywhere.com` calls backup API cross-origin; without CORS, all requests fail |
+| 4 | 🔴 Critical | All repos | Create individual `REPO_EVALUATION_REPORT.md` in workforce-backup (issue #19) and workforce-console (issue #18) | This cross-repo report cannot be fully populated without per-repo reports |
+| 5 | 🔴 Critical | workforce-showcase | Remove `hospitable.db*` from git tracking; add to `.gitignore`; audit for real data exposure | Committed DB file is a data integrity and privacy risk; violates backup's own D-0005 policy |
+| 6 | 🟡 High | workforce-showcase | Build `lib/api-client-react` declaration files and fix TypeScript errors (target: 0 errors) | Prerequisite for a clean build and any production deployment |
+| 7 | 🟡 High | workforce-showcase | Trigger the `playwright-browser-validation.yml` workflow (workflow_dispatch) with a valid `dist-staging` build; verify passing run | Regular Playwright CI has been passing, but dist-staging browser-level validation has never been run |
+| 8 | 🟡 High | All repos | Publish canonical permission string catalogue; align showcase frontend wildcard strings with backup's atomic codes | Current mismatch means frontend RBAC checks silently fail against the platform backend |
+| 9 | 🟡 High | workforce-showcase | Migrate `workforce_token` from `localStorage` to a more secure mechanism | Token XSS exposure is a significant auth security risk |
+| 10 | 🟢 Medium | All repos | Create deployment topology document mapping each domain/host to its serving application; clarify PythonAnywhere vs Render | Two different hosting platforms referenced across repos with no canonical mapping; operational confusion |
 
 ---
 
-## Appendix: Repository Structure Summary (workforce-showcase)
+## Appendix A: Repository Structure Summary (workforce-showcase)
 
 ```
 workforce-showcase/
 ├── app.py                          # Flask SPA fallback server
-├── .env.production                 # Production env: VITE_API_BASE_URL
+├── .env.production                 # Production env: VITE_API_BASE_URL=https://hn3t.pythonanywhere.com
 ├── hospitable.db                   # ⚠️ SQLite DB committed to repo
 ├── artifacts/
 │   ├── api-server/                 # Local Node.js/Express API proxy
-│   │   └── src/auth/router.ts      # Auth proxy + local credential override
+│   │   └── src/auth/router.ts      # Auth proxy + local credential override + hardcoded SILVER_SANDS_BUSINESS_ID
 │   └── workforce-console/          # Frontend SPA (React + Vite)
 │       ├── src/lib/api-client.ts   # HTTP client; reads localStorage token
 │       ├── src/lib/auth-context.tsx # AuthProvider + session management
 │       └── vite.config.ts          # Build config; requires PORT + BASE_PATH
 ├── lib/
 │   ├── api-spec/openapi.yaml       # OpenAPI 3.1 spec (partial coverage)
-│   ├── api-client-react/           # Generated TypeScript client (declarations not built)
+│   ├── api-client-react/           # Generated TypeScript client (declarations not built — 32 TS errors)
 │   ├── api-zod/                    # Generated Zod schemas
 │   └── db/                         # Drizzle ORM schema + migrations
 ├── developer_hub/                  # Static HTML dev hub
 ├── docs/
 │   ├── ADMIN/frontend/             # Operational runbooks, progress report, cutover plan
 │   ├── planning/                   # Templates and planning docs
-│   └── plans/                      # Execution pointers
+│   ├── plans/                      # Execution pointers
+│   └── reports/                    # REPO_EVALUATION_REPORT.md + this file
 └── dist/                           # Built SPA output (not in repo; produced at build time)
 ```
 
 ---
 
-*This report was generated by automated analysis of the `workforce-showcase` repository. Sections for `workforce-backup` and standalone `workforce-console` are placeholders that must be populated from those repos' individual evaluation reports.*
+## Appendix B: Repository Structure Summary (workforce-backup)
+
+*Read from GitHub API — no local clone available.*
+
+```
+workforce-backup/
+├── apps/
+│   └── api/
+│       └── app/
+│           ├── main.py             # FastAPI entrypoint; SKIP_WORKFORCE_MODELS=1 default
+│           ├── models/
+│           │   ├── access_control.py     # Re-export shim → access_control_local.py
+│           │   └── access_control_local.py  # Canonical RBAC models (D-0011)
+│           ├── services/
+│           │   └── rbac_service.py      # Permission resolution service
+│           └── api/v1/              # Route handlers (health, rooms, tasks, assignments, shifts, bootstrap, me)
+├── packages/
+│   └── workforce/workforce/app/models/identity.py  # ⚠️ Frozen legacy; double-registers tables; guarded by SKIP_WORKFORCE_MODELS=1
+├── alembic/                         # Migrations; single head: 20260425_add_membership_fields
+├── wsgi.py                          # PythonAnywhere WSGI wrapper (a2wsgi)
+├── .github/workflows/
+│   ├── ci.yml                       # Fixed 2026-05-03: matrix python versions, PYTHONPATH, SKIP_WORKFORCE_MODELS
+│   └── backend-ci.yml               # Added 2026-05-03: install → alembic upgrade → alembic check → pytest
+├── docs/
+│   ├── DECISIONS.md                 # D-0001..D-0011 + migration decisions; canonical RBAC in D-0011
+│   ├── ROADMAP.md                   # Phase 0 through 6 delivery plan
+│   ├── PHASE_STATUS.md              # Current: Phase 0 — Foundation Freeze
+│   ├── TODO.md                      # Phase 0 tasks; PostgreSQL verification and v0.1 tag pending
+│   ├── WORKLOG.md                   # Evidence-based change log
+│   └── reports/
+│       └── WORKFORCE_CROSS_REPO_EVALUATION_REPORT.md  # ⚠️ Backup's own copy; superseded by this file
+└── pyproject.toml                   # Poetry; a2wsgi runtime dep added 2026-04-28
+```
+
+---
+
+## Appendix C: Repository Structure Summary (workforce-console)
+
+*Read from GitHub API — no local clone available.*
+
+```
+workforce-console/
+├── HN3T_MASTER_PLAN.md             # High-level program plan
+├── PROGRESS_REPORT.md              # Machine session log (not a structured report)
+├── RUNNING_SERVICES.md             # Service status log
+├── run_plan.sh                     # Deployment/run script
+├── workforce_api/                  # FastAPI backend (canonical active surface)
+│   └── apps/api/app/
+│       ├── main.py                 # FastAPI entrypoint
+│       ├── api/v1/endpoints/       # bootstrap.py, auth (login/register), rooms, tasks, shifts, assignments
+│       ├── models/
+│       │   ├── employee.py         # ⚠️ Candidate model; needs migration + verification
+│       │   └── user_employee_link.py  # ⚠️ Candidate model; needs migration + verification
+│       └── services/               # housekeeping_service.py, room_board_service.py, rbac_service.py
+├── workforce_frontend_app/         # React/Vite frontend SPA
+│   ├── artifacts/workforce-console/ # Frontend code
+│   │   └── src/lib/auth-context.tsx  # Uses GET /api/v1/bootstrap when no token
+│   └── docs/ADMIN/frontend/         # Frontend admin docs and runbooks
+├── workforce_new/                  # ⚠️ Legacy/experimental backend; do not treat as active
+├── upload/                         # PDF exports and uploads
+└── docs/
+    ├── 00_START_HERE/
+    │   ├── CURRENT_STATE.md        # Evidence-based snapshot (2026-04-18)
+    │   ├── CANONICAL_SOURCES.md    # Source mapping
+    │   ├── EXECUTION_QUEUE.md      # Ordered task queue
+    │   └── OPEN_DECISIONS.md       # Open architectural decisions
+    ├── planning/                   # Consolidated master plan
+    └── workstreams/                # workforce-web-ui workstream docs
+```
+
+---
+
+*This report was updated by automated analysis using GitHub API access to all three repositories. Individual `REPO_EVALUATION_REPORT.md` files do not yet exist in workforce-backup or workforce-console — this cross-repo report is currently the most detailed multi-repo assessment available.*
