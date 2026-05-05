@@ -93,29 +93,34 @@ paths:
         This endpoint separates the system user identity (from /auth/me) from
         employee profiles, preserving the user/employee boundary.
 
+        **Compatibility mode:** When no employee-profile links are found in the
+        local database, the endpoint synthesises a single `COMPAT` scope using
+        the permissions and roles already carried by the caller's auth token or
+        session. This ensures `has_access` is `true` and `active_scope_count` is
+        `1` for any user with an active membership, so the frontend
+        `employmentScope` is never silently null. No RBAC is bypassed — the
+        synthesised scope reflects exactly the permissions present in the token.
+        Real employee-profile links (when present) always take precedence.
+
         **Upstream support:** The local API proxy (api-server) implements this
         endpoint using the local SQLite database. Support on the upstream
-        PythonAnywhere backend (hn3t.pythonanywhere.com) is **unverified**.
-        If the upstream backend returns a non-2xx response, this endpoint
-        propagates the upstream status. If the upstream backend does not
-        implement this path, the local proxy resolves it using local DB records.
+        PythonAnywhere backend (hn3t.pythonanywhere.com) is **not yet available**.
+        Until the upstream backend adds this endpoint, callers using PythonAnywhere
+        JWT tokens are served the compatibility response described above.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Access context for the current user
+          description: |
+            Access context resolved. `has_access` is `true` when at least one
+            employee-profile link was found **or** a compatibility scope was
+            synthesised from the caller's existing membership/permissions.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccessContext"
         "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden — no active employee scopes found
+          description: Unauthorized — no valid bearer token provided
           content:
             application/json:
               schema:
@@ -538,6 +543,10 @@ components:
       description: |
         A single employment scope linking a system user to an employee profile,
         including the employee's role assignments and effective permissions.
+
+        When `link_status` is `"COMPAT"` the scope was synthesised from the
+        caller's auth token because no employee-profile link record was found.
+        All other fields are populated from real DB records when available.
       properties:
         employee_profile_id:
           type: string
@@ -588,8 +597,11 @@ components:
       description: |
         Employment access context for the authenticated user.
         Returned by GET /api/v1/auth/me/access-context.
-        Upstream backend support is unverified; the local API proxy
-        (api-server) provides this using local SQLite records.
+
+        The local API proxy (api-server) provides this using local SQLite records.
+        When no employee-profile links are present, a single `COMPAT` scope is
+        synthesised from the user's auth token permissions so `has_access` is
+        `true` for any user with an active membership.
       properties:
         user_id:
           type: string
