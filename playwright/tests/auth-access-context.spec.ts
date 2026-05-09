@@ -72,7 +72,11 @@ test("auth router source: hasActiveMembership does NOT use permissions.length", 
 
 /**
  * Mirrors the compat-scope builder in artifacts/api-server/src/auth/router.ts.
- * Kept in sync with the router so changes to one must be reflected in the other.
+ *
+ * **Keep in sync with the router implementation.**  If the gate logic or
+ * scope shape changes in router.ts, update this function to match so the
+ * behavioural assertions below remain accurate.  (TypeScript and Python share
+ * no runtime; the Python backend has its own equivalent in backend/auth_router.py.)
  */
 function buildCompatScope(userId: string, userData: Record<string, unknown>) {
   const permissions = (userData.permissions ?? []) as string[];

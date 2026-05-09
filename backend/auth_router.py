@@ -25,8 +25,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
-_ALGORITHMS: list[str] = ["HS256", "HS384", "HS512"]
+_raw_secret: str | None = os.getenv("JWT_SECRET_KEY")
+if not _raw_secret:
+    import warnings
+
+    warnings.warn(
+        "JWT_SECRET_KEY is not set. Using the insecure development default. "
+        "Set JWT_SECRET_KEY in your environment before deploying to production.",
+        stacklevel=1,
+    )
+    _raw_secret = "dev-secret-key-change-in-production"
+
+SECRET_KEY: str = _raw_secret
+# HS256 is the only algorithm issued by this backend. Accepting multiple
+# algorithms can enable algorithm-confusion attacks, so a single value is used.
+_ALGORITHM = "HS256"
 
 router = APIRouter()
 _bearer = HTTPBearer(auto_error=False)
@@ -90,7 +103,7 @@ def get_current_user_claims(
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        return pyjwt.decode(credentials.credentials, SECRET_KEY, algorithms=_ALGORITHMS)
+        return pyjwt.decode(credentials.credentials, SECRET_KEY, algorithms=[_ALGORITHM])
     except pyjwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
