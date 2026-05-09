@@ -96,17 +96,23 @@ paths:
         **Compatibility mode:** When no employee-profile links are found in the
         local database, the endpoint synthesises a single `COMPAT` scope using
         the permissions and roles already carried by the caller's auth token or
-        session. This ensures `has_access` is `true` and `active_scope_count` is
-        `1` for any user with an active membership, so the frontend
-        `employmentScope` is never silently null. No RBAC is bypassed — the
-        synthesised scope reflects exactly the permissions present in the token.
-        Real employee-profile links (when present) always take precedence.
+        session. No RBAC is bypassed — the synthesised scope reflects exactly
+        the permissions present in the token. Real employee-profile links
+        (when present) always take precedence.
 
-        **Upstream support:** The local API proxy (api-server) implements this
-        endpoint using the local SQLite database. Support on the upstream
-        PythonAnywhere backend (hn3t.pythonanywhere.com) is **not yet available**.
-        Until the upstream backend adds this endpoint, callers using PythonAnywhere
-        JWT tokens are served the compatibility response described above.
+        **Membership gate:** A COMPAT scope is synthesised only when the user
+        has at least one active membership (or a legacy membership with no
+        `status` field). A user with permissions but **no active membership**
+        receives `has_access: false` and `active_scope_count: 0`.
+
+        **Super-admin detection:** `is_super_admin` is `true` when
+        `effective_permissions` contains `"*"`, `"superadmin:*"`, or any
+        permission starting with `"superadmin:"`.
+
+        **Backend implementations:**
+        - Local Node proxy (`artifacts/api-server`) — uses local SQLite records.
+        - Python FastAPI backend (`backend/`) — uses JWT claims; reference
+          implementation for the PythonAnywhere production deployment.
       security:
         - bearerAuth: []
       responses:
@@ -114,7 +120,9 @@ paths:
           description: |
             Access context resolved. `has_access` is `true` when at least one
             employee-profile link was found **or** a compatibility scope was
-            synthesised from the caller's existing membership/permissions.
+            synthesised because the user has an active membership.
+            `has_access` is `false` when the user has no active membership,
+            even if they carry RBAC permissions.
           content:
             application/json:
               schema:
@@ -598,10 +606,13 @@ components:
         Employment access context for the authenticated user.
         Returned by GET /api/v1/auth/me/access-context.
 
-        The local API proxy (api-server) provides this using local SQLite records.
-        When no employee-profile links are present, a single `COMPAT` scope is
-        synthesised from the user's auth token permissions so `has_access` is
-        `true` for any user with an active membership.
+        Both the local Node proxy (api-server, SQLite) and the Python FastAPI
+        backend (backend/) implement this endpoint.  When no employee-profile
+        link records are present, a single `COMPAT` scope is synthesised from
+        the user's auth token permissions.
+
+        `has_access` is `true` only when the user has at least one active
+        membership; permissions alone do not set it to `true`.
       properties:
         user_id:
           type: string

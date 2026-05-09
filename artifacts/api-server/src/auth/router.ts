@@ -185,7 +185,8 @@ router.get("/me/access-context", async (req, res) => {
         permissions: (() => { try { return JSON.parse(a.permissions); } catch { return []; } })(),
       })),
       effective_permissions: [...allPerms],
-      is_super_admin: allPerms.has("*"),
+      is_super_admin: allPerms.has("*") ||
+        [...allPerms].some((p) => p === "superadmin:*" || p.startsWith("superadmin:")),
     });
   }
 
@@ -199,11 +200,12 @@ router.get("/me/access-context", async (req, res) => {
     const memberships = (userData.memberships ?? []) as Array<Record<string, unknown>>;
     const nested = userData.user as Record<string, unknown> | undefined;
 
-    // Consider the user as having active access when they carry any permissions
-    // or have at least one membership (active or otherwise — no status means legacy
-    // records where all memberships were implicitly active).
+    // A COMPAT scope is synthesised only when the user has at least one active
+    // membership, or a legacy membership with no status (legacy records where all
+    // memberships were implicitly active).  Users who carry permissions but have
+    // no active membership must receive has_access: false — permissions alone do
+    // not confer active employment scope.
     const hasActiveMembership =
-      permissions.length > 0 ||
       memberships.some((m) => !m.status || m.status === "active");
 
     if (hasActiveMembership) {
@@ -243,7 +245,8 @@ router.get("/me/access-context", async (req, res) => {
         employment_status:   "ACTIVE",
         assignments:         compatAssignments,
         effective_permissions: permissions,
-        is_super_admin:      permissions.includes("*"),
+        is_super_admin:      permissions.includes("*") ||
+          permissions.some((p) => p === "superadmin:*" || p.startsWith("superadmin:")),
       });
     }
   }

@@ -1,16 +1,23 @@
 /**
  * Tests for GET /api/v1/auth/me/access-context
  *
- * The api-server requires native SQLite bindings (better-sqlite3), so the full
- * server is not started here. Instead these tests validate the handler logic by:
- *   a) Checking the source file contains all required code paths.
- *   b) Exercising the pure compatibility-scope construction using a lightweight
- *      in-process HTTP server that stubs out the SQLite dependency.
+ * Actual route/API behaviour tests live in:
+ *   backend/tests/test_auth_access_context.py  (pytest + FastAPI TestClient)
  *
- * These complement the behavioural intent described in the problem statement:
- *   - Authenticated user with active membership → 200 + effective_permissions
- *   - Unauthenticated request → 401
- *   - No active membership → has_access: false
+ * These Playwright tests:
+ *   a) Verify source-code invariants in the Node proxy handler — quick
+ *      sanity check that required code paths are present after edits.
+ *   b) Exercise the pure compatibility-scope construction logic in-process
+ *      to cover all behavioural cases the proxy must satisfy, without
+ *      requiring native SQLite bindings.
+ *
+ * Behavioural intent validated below:
+ *   - active membership + permissions → has_access true, effective_permissions present
+ *   - active membership + no permissions → has_access true, empty effective_permissions
+ *   - no memberships + permissions → has_access false  (permissions do NOT confer membership)
+ *   - inactive membership + permissions → has_access false
+ *   - legacy membership (no status) + permissions → has_access true
+ *   - unauthenticated request → 401  (source-code assertion)
  */
 import { test, expect } from "@playwright/test";
 import * as fs from "fs";
@@ -23,7 +30,6 @@ test("auth router source: compatibility fallback is present", () => {
     "utf8"
   );
 
-  // Compatibility scope construction exists
   expect(src).toContain("Compatibility fallback");
   expect(src).toContain("hasActiveMembership");
   expect(src).toContain("compat-ep-");
@@ -40,39 +46,41 @@ test("auth router source: unauthenticated path returns 401", () => {
   expect(src).toContain('"Not authenticated"');
 });
 
-test("auth router source: is_super_admin derived from '*' permission", () => {
+test("auth router source: is_super_admin checks wildcard and superadmin prefix", () => {
   const src = fs.readFileSync(
     "artifacts/api-server/src/auth/router.ts",
     "utf8"
   );
+  // Both the base wildcard check and the expanded superadmin prefix check must be present
   expect(src).toContain('permissions.includes("*")');
+  expect(src).toContain('"superadmin:*"');
+  expect(src).toContain('p.startsWith("superadmin:")');
 });
 
-test("auth router source: no active membership → has_access false preserved", () => {
+test("auth router source: hasActiveMembership does NOT use permissions.length", () => {
   const src = fs.readFileSync(
     "artifacts/api-server/src/auth/router.ts",
     "utf8"
   );
-  // The compatibility block only fires when hasActiveMembership is true,
-  // meaning when there are no memberships the fallback is not inserted and
-  // has_access remains false.
+  // The gate must be membership-only; permissions alone must not confer active scope
+  expect(src).not.toContain("permissions.length > 0 ||");
   expect(src).toContain("if (hasActiveMembership)");
   expect(src).toContain("has_access: scopes.length > 0");
 });
 
-// ── Response-shape check (pure logic, no real DB) ────────────────────────────
+// ── Pure-logic tests (no DB / no server required) ────────────────────────────
 
 /**
- * Builds the same compat scope the router builds, given a user data object.
- * Mirrors the logic in artifacts/api-server/src/auth/router.ts exactly.
+ * Mirrors the compat-scope builder in artifacts/api-server/src/auth/router.ts.
+ * Kept in sync with the router so changes to one must be reflected in the other.
  */
 function buildCompatScope(userId: string, userData: Record<string, unknown>) {
   const permissions = (userData.permissions ?? []) as string[];
   const memberships = (userData.memberships ?? []) as Array<Record<string, unknown>>;
   const nested = userData.user as Record<string, unknown> | undefined;
 
+  // Membership-only gate: permissions alone do not constitute active membership.
   const hasActiveMembership =
-    permissions.length > 0 ||
     memberships.some((m) => !m.status || m.status === "active");
 
   if (!hasActiveMembership) return null;
@@ -113,11 +121,13 @@ function buildCompatScope(userId: string, userData: Record<string, unknown>) {
     employment_status:   "ACTIVE",
     assignments:         compatAssignments,
     effective_permissions: permissions,
-    is_super_admin:      permissions.includes("*"),
+    is_super_admin:      permissions.includes("*") ||
+      permissions.some((p) => p === "superadmin:*" || p.startsWith("superadmin:")),
   };
 }
 
-test("compat scope: active membership user gets 200-compatible response", () => {
+// active membership + permissions → has_access true
+test("compat scope: active membership + permissions → scope returned", () => {
   const userId = "user-001";
   const userData = {
     id: userId,
@@ -141,6 +151,7 @@ test("compat scope: active membership user gets 200-compatible response", () => 
   expect(scope!.link_status).toBe("COMPAT");
 });
 
+// active membership + permissions → effective_permissions present
 test("compat scope: response includes effective_permissions from session", () => {
   const userId = "user-002";
   const userData = {
@@ -161,20 +172,60 @@ test("compat scope: response includes effective_permissions from session", () =>
   expect(scope!.is_super_admin).toBe(false);
 });
 
-test("compat scope: user with no memberships and no permissions → no compat scope", () => {
-  const scope = buildCompatScope("anon-user", {
-    id: "anon-user",
-    email: "anon@example.com",
+// active membership + no permissions → has_access true, empty effective_permissions
+test("compat scope: active membership + no permissions → scope with empty effective_permissions", () => {
+  const scope = buildCompatScope("user-003", {
+    id: "user-003",
+    email: "newuser@silversands.com",
     roles: [],
     permissions: [],
+    memberships: [{ business_id: "biz-silver-sands", status: "active" }],
+  });
+  expect(scope).not.toBeNull();
+  expect(scope!.effective_permissions).toEqual([]);
+  expect(scope!.is_super_admin).toBe(false);
+});
+
+// no memberships + permissions → has_access false
+test("compat scope: no memberships + permissions → no compat scope (has_access false)", () => {
+  const scope = buildCompatScope("user-004", {
+    id: "user-004",
+    email: "orphan@example.com",
+    roles: ["Staff"],
+    permissions: ["rooms:write", "tasks:write"],
     memberships: [],
   });
-  // No active membership → compatibility fallback does not fire → has_access false
+  // Permissions alone do not confer active membership
   expect(scope).toBeNull();
 });
 
+// inactive membership + permissions → has_access false
+test("compat scope: inactive membership + permissions → no compat scope (has_access false)", () => {
+  const scope = buildCompatScope("user-005", {
+    id: "user-005",
+    email: "inactive@silversands.com",
+    roles: ["Staff"],
+    permissions: ["rooms:write"],
+    memberships: [{ business_id: "biz-silver-sands", status: "inactive" }],
+  });
+  expect(scope).toBeNull();
+});
+
+// legacy membership (no status field) → has_access true
+test("compat scope: legacy membership without status field treated as active", () => {
+  const scope = buildCompatScope("user-006", {
+    id: "user-006",
+    email: "legacy@silversands.com",
+    roles: ["Staff"],
+    permissions: ["rooms:read"],
+    memberships: [{ business_id: "biz-silver-sands" }], // no status → legacy
+  });
+  expect(scope).not.toBeNull();
+  expect(scope!.effective_permissions).toContain("rooms:read");
+});
+
+// PythonAnywhere nested response shape
 test("compat scope: PythonAnywhere nested user shape is handled", () => {
-  // PythonAnywhere returns { user: { id, email }, permissions, roles, memberships }
   const userId = "user-001";
   const userData = {
     user: { id: userId, email: "manager@silversands.com", is_active: true },
@@ -191,3 +242,30 @@ test("compat scope: PythonAnywhere nested user shape is handled", () => {
   expect(scope!.effective_permissions).toContain("*");
   expect(scope!.business_id).toBe("biz-silver-sands");
 });
+
+// is_super_admin: superadmin:* permission
+test("compat scope: superadmin:* permission → is_super_admin true", () => {
+  const scope = buildCompatScope("user-007", {
+    id: "user-007",
+    email: "sadmin@silversands.com",
+    roles: [],
+    permissions: ["superadmin:*"],
+    memberships: [{ business_id: "biz-silver-sands", status: "active" }],
+  });
+  expect(scope).not.toBeNull();
+  expect(scope!.is_super_admin).toBe(true);
+});
+
+// is_super_admin: superadmin: prefix
+test("compat scope: superadmin: prefix permission → is_super_admin true", () => {
+  const scope = buildCompatScope("user-008", {
+    id: "user-008",
+    email: "sadmin2@silversands.com",
+    roles: [],
+    permissions: ["superadmin:read", "superadmin:write"],
+    memberships: [{ business_id: "biz-silver-sands", status: "active" }],
+  });
+  expect(scope).not.toBeNull();
+  expect(scope!.is_super_admin).toBe(true);
+});
+
