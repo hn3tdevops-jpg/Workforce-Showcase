@@ -69,13 +69,12 @@ function mapToSessionInfo(data: ApiMeResponse): LocalSession {
   const first_name = data.user?.first_name ?? data.first_name;
   const last_name = data.user?.last_name ?? data.last_name;
   const is_active = data.user?.is_active ?? true;
-  const active_business_id = data.business_id ?? data.active_business_id;
-
   const memberships = (data.memberships ?? []).map((m) => ({
     business_id: m.business_id,
     business_name: m.business_name ?? "",
     role: m.is_owner ? "owner" : (m.role ?? "member"),
   }));
+  const active_business_id = data.business_id ?? data.active_business_id ?? memberships[0]?.business_id;
 
   return {
     id,
@@ -160,7 +159,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await fetchApi<ApiMeResponse>("/auth/me");
       const info = mapToSessionInfo(data);
       setSession(info);
-      // Fetch employment scope for this user
       try {
         const userId = data.user?.id ?? data.id ?? info.id;
         if (userId) {
@@ -200,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const response = await fetchApi<ApiLoginResponse>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ ...credentials, business_id: null }),
+      body: JSON.stringify(credentials),
     });
     localStorage.setItem("workforce_token", response.access_token);
     await loadSession();

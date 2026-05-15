@@ -68,19 +68,20 @@ function BusinessSelector() {
   const { settings } = useBusinessSettings();
   const [switching, setSwitching] = useState<string | null>(null);
 
+  const activeBusinessId = session?.active_business_id ?? session?.memberships?.[0]?.business_id ?? null;
   const activeMembership = session?.memberships?.find(
-    (m: any) => m.business_id === session.active_business_id
+    (m: any) => m.business_id === activeBusinessId
   ) ?? session?.memberships?.[0];
 
   const businessName =
     settings?.display_name ||
     activeMembership?.business_name ||
-    (session?.active_business_id === "local" ? "Local Account" : "Unknown Business");
+    (activeBusinessId === "local" ? "Local Account" : "Unknown Business");
 
   const role = activeMembership?.role ?? "member";
 
   const handleSwitch = async (businessId: string) => {
-    if (businessId === session?.active_business_id) return;
+    if (businessId === activeBusinessId) return;
     setSwitching(businessId);
     try {
       await switchBusiness(businessId);
@@ -125,7 +126,7 @@ function BusinessSelector() {
         <DropdownMenuSeparator />
 
         {(session?.memberships ?? []).map((m: any) => {
-          const isActive = m.business_id === session?.active_business_id;
+          const isActive = m.business_id === activeBusinessId;
           const isLoadingItem = switching === m.business_id;
           const name = m.business_name || (m.business_id === "local" ? "Local Account" : m.business_id);
           return (

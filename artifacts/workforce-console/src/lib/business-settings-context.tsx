@@ -84,7 +84,7 @@ const DEMO_SETTINGS: BusinessSettings = {
 export function BusinessSettingsProvider({ children }: { children: React.ReactNode }) {
   const { session, isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const businessId = session?.active_business_id ?? null;
+  const businessId = session?.active_business_id ?? session?.memberships?.[0]?.business_id ?? null;
 
   const { data: settings, isLoading } = useQuery<BusinessSettings>({
     queryKey: ["business-settings", businessId],

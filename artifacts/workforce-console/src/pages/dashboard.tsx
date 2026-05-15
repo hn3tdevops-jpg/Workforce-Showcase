@@ -30,6 +30,7 @@ export default function Dashboard() {
   const { selectedLocation, selectedLocationId } = useLocation();
 
   const locationId = selectedLocationId ?? "";
+  const activeBusinessId = session?.active_business_id ?? session?.memberships?.[0]?.business_id ?? null;
 
   const { data: summary, isLoading: loadingSummary } = useQuery({
     queryKey: ["/hospitable/dashboard", locationId],
@@ -58,7 +59,7 @@ export default function Dashboard() {
   });
 
   const activeBusiness = session?.memberships.find(
-    (m: any) => m.business_id === session.active_business_id
+    (m: any) => m.business_id === activeBusinessId
   );
 
   // Room status breakdown (from live rooms data)

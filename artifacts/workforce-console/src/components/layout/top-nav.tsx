@@ -187,8 +187,9 @@ export function TopNav() {
   const { session, logout, switchBusiness, isOwner, isSuperAdmin } = useAuth();
   const { settings } = useBusinessSettings();
 
+  const activeBusinessId = session?.active_business_id ?? session?.memberships?.[0]?.business_id ?? null;
   const activeBusiness = session?.memberships.find(
-    (m: any) => m.business_id === session.active_business_id
+    (m: any) => m.business_id === activeBusinessId
   );
   const businessDisplayName =
     settings?.display_name || activeBusiness?.business_name || activeBusiness?.business_id;
@@ -242,7 +243,7 @@ export function TopNav() {
                   key={membership.business_id}
                   onClick={() => switchBusiness(membership.business_id)}
                   className={`gap-2 cursor-pointer text-sm ${
-                    membership.business_id === session.active_business_id
+                    membership.business_id === activeBusinessId
                       ? "bg-primary/10 text-primary focus:bg-primary/20"
                       : ""
                   }`}
