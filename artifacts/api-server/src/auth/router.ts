@@ -110,12 +110,17 @@ router.get("/me/access-context", async (req, res) => {
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
 
   let userId: string | null = null;
+  // Keep full user data for the compatibility fallback when no employee links exist
+  let userData: Record<string, unknown> | null = null;
 
   if (token) {
     const db = getDb();
     const row = db.prepare("SELECT user_json FROM local_sessions WHERE token = ?").get(token) as { user_json: string } | undefined;
     if (row) {
-      try { userId = JSON.parse(row.user_json).id; } catch { /* ignore */ }
+      try {
+        userData = JSON.parse(row.user_json) as Record<string, unknown>;
+        userId = (userData.id as string) ?? null;
+      } catch { /* ignore */ }
     }
   }
 
@@ -125,8 +130,12 @@ router.get("/me/access-context", async (req, res) => {
       headers: authHeader ? { authorization: authHeader } : {},
     });
     if (upstreamRes.ok) {
-      const user = await upstreamRes.json() as { id?: string };
-      userId = user.id ?? null;
+      // PythonAnywhere shape: { user: { id }, permissions, roles, memberships }
+      // Legacy flat shape:    { id, permissions, roles, memberships }
+      const raw = await upstreamRes.json() as Record<string, unknown>;
+      const nested = raw.user as Record<string, unknown> | undefined;
+      userId = (nested?.id ?? raw.id) as string | null;
+      userData = raw;
     }
   }
 
@@ -176,8 +185,70 @@ router.get("/me/access-context", async (req, res) => {
         permissions: (() => { try { return JSON.parse(a.permissions); } catch { return []; } })(),
       })),
       effective_permissions: [...allPerms],
-      is_super_admin: allPerms.has("*"),
+      is_super_admin: allPerms.has("*") ||
+        [...allPerms].some((p) => p === "superadmin:*" || p.startsWith("superadmin:")),
     });
+  }
+
+  // Compatibility fallback: if no employee-profile links exist in the local DB,
+  // synthesise a single scope from the user's current RBAC permissions so the
+  // frontend's `employmentScope` is never silently null for authenticated members.
+  // This does NOT bypass RBAC — it uses only the permissions already granted via
+  // the auth token / session, and correctly reports is_super_admin.
+  if (scopes.length === 0 && userData !== null) {
+    const permissions = (userData.permissions ?? []) as string[];
+    const memberships = (userData.memberships ?? []) as Array<Record<string, unknown>>;
+    const nested = userData.user as Record<string, unknown> | undefined;
+
+    // A COMPAT scope is synthesised only when the user has at least one active
+    // membership, or a legacy membership with no status (legacy records where all
+    // memberships were implicitly active).  Users who carry permissions but have
+    // no active membership must receive has_access: false — permissions alone do
+    // not confer active employment scope.
+    const hasActiveMembership =
+      memberships.some((m) => !m.status || m.status === "active");
+
+    if (hasActiveMembership) {
+      const activeMembership =
+        memberships.find((m) => !m.status || m.status === "active") ??
+        memberships[0] ??
+        null;
+
+      const roleNames = (userData.roles ?? []) as string[];
+      const compatAssignments = roleNames.map((r, i) => ({
+        id: `compat-role-${i}`,
+        role_name: r,
+        scope_type: "BUSINESS",
+        location_id: null,
+        location_name: null,
+        permissions,
+      }));
+
+      const firstName = (nested?.first_name ?? userData.first_name ?? "") as string;
+      const lastName  = (nested?.last_name  ?? userData.last_name  ?? "") as string;
+      const email     = (nested?.email      ?? userData.email      ?? userId) as string;
+      const jobTitle  = (nested?.job_title  ?? userData.job_title  ?? null) as string | null;
+
+      scopes.push({
+        employee_profile_id: `compat-ep-${userId}`,
+        link_id:             `compat-link-${userId}`,
+        link_status:         "COMPAT",
+        business_id:
+          (userData.active_business_id ??
+           userData.business_id ??
+           activeMembership?.business_id ??
+           SILVER_SANDS_BUSINESS_ID) as string,
+        employee_name:       `${firstName} ${lastName}`.trim() || email,
+        job_title:           jobTitle,
+        department:          null,
+        employee_code:       null,
+        employment_status:   "ACTIVE",
+        assignments:         compatAssignments,
+        effective_permissions: permissions,
+        is_super_admin:      permissions.includes("*") ||
+          permissions.some((p) => p === "superadmin:*" || p.startsWith("superadmin:")),
+      });
+    }
   }
 
   res.json({

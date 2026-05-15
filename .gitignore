@@ -44,6 +44,11 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# Replit
-.cache/
-.local/
+# Playwright artifacts
+test-results/
+playwright-report/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

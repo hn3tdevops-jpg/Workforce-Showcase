@@ -93,29 +93,42 @@ paths:
         This endpoint separates the system user identity (from /auth/me) from
         employee profiles, preserving the user/employee boundary.
 
-        **Upstream support:** The local API proxy (api-server) implements this
-        endpoint using the local SQLite database. Support on the upstream
-        PythonAnywhere backend (hn3t.pythonanywhere.com) is **unverified**.
-        If the upstream backend returns a non-2xx response, this endpoint
-        propagates the upstream status. If the upstream backend does not
-        implement this path, the local proxy resolves it using local DB records.
+        **Compatibility mode:** When no employee-profile links are found in the
+        local database, the endpoint synthesises a single `COMPAT` scope using
+        the permissions and roles already carried by the caller's auth token or
+        session. No RBAC is bypassed — the synthesised scope reflects exactly
+        the permissions present in the token. Real employee-profile links
+        (when present) always take precedence.
+
+        **Membership gate:** A COMPAT scope is synthesised only when the user
+        has at least one active membership (or a legacy membership with no
+        `status` field). A user with permissions but **no active membership**
+        receives `has_access: false` and `active_scope_count: 0`.
+
+        **Super-admin detection:** `is_super_admin` is `true` when
+        `effective_permissions` contains `"*"`, `"superadmin:*"`, or any
+        permission starting with `"superadmin:"`.
+
+        **Backend implementations:**
+        - Local Node proxy (`artifacts/api-server`) — uses local SQLite records.
+        - Python FastAPI backend (`backend/`) — uses JWT claims; reference
+          implementation for the PythonAnywhere production deployment.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Access context for the current user
+          description: |
+            Access context resolved. `has_access` is `true` when at least one
+            employee-profile link was found **or** a compatibility scope was
+            synthesised because the user has an active membership.
+            `has_access` is `false` when the user has no active membership,
+            even if they carry RBAC permissions.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccessContext"
         "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden — no active employee scopes found
+          description: Unauthorized — no valid bearer token provided
           content:
             application/json:
               schema:
@@ -538,6 +551,10 @@ components:
       description: |
         A single employment scope linking a system user to an employee profile,
         including the employee's role assignments and effective permissions.
+
+        When `link_status` is `"COMPAT"` the scope was synthesised from the
+        caller's auth token because no employee-profile link record was found.
+        All other fields are populated from real DB records when available.
       properties:
         employee_profile_id:
           type: string
@@ -588,8 +605,14 @@ components:
       description: |
         Employment access context for the authenticated user.
         Returned by GET /api/v1/auth/me/access-context.
-        Upstream backend support is unverified; the local API proxy
-        (api-server) provides this using local SQLite records.
+
+        Both the local Node proxy (api-server, SQLite) and the Python FastAPI
+        backend (backend/) implement this endpoint.  When no employee-profile
+        link records are present, a single `COMPAT` scope is synthesised from
+        the user's auth token permissions.
+
+        `has_access` is `true` only when the user has at least one active
+        membership; permissions alone do not set it to `true`.
       properties:
         user_id:
           type: string
